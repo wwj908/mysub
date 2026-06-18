@@ -30,6 +30,7 @@ RUN pnpm install --frozen-lockfile
 
 # Copy frontend source and build
 COPY frontend/ ./
+COPY docs/ /app/docs/
 RUN pnpm run build
 
 # -----------------------------------------------------------------------------
