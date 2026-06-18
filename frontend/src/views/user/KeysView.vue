@@ -336,6 +336,21 @@
                 <Icon name="download" size="sm" />
                 <span class="text-xs">{{ t('keys.exportBat') }}</span>
               </button>
+              <!-- Test Connection Button -->
+              <button
+                @click="testApiKeyConnection(row)"
+                :disabled="testingKeyId === row.id"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-purple-50 hover:text-purple-600 disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-purple-900/20 dark:hover:text-purple-400"
+              >
+                <Icon
+                  name="beaker"
+                  size="sm"
+                  :class="{ 'animate-pulse': testingKeyId === row.id }"
+                />
+                <span class="text-xs">{{
+                  testingKeyId === row.id ? t('keys.testingConnection') : t('keys.testConnection')
+                }}</span>
+              </button>
               <!-- Toggle Status Button -->
               <button
                 @click="toggleKeyStatus(row)"
@@ -1155,6 +1170,7 @@ const showCcsClientSelect = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
+const testingKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
@@ -1365,6 +1381,73 @@ const exportCodexBat = (row: ApiKey) => {
     appStore.showSuccess(t('keys.batExportSuccess'))
   } catch {
     appStore.showError(t('keys.batExportFailed'))
+  }
+}
+
+const getGatewayBaseUrl = () => {
+  return (publicSettings.value?.api_base_url || window.location.origin).replace(/\/+$/, '')
+}
+
+const getApiKeyTestPath = (row: ApiKey) => {
+  const platform = row.group?.platform || 'anthropic'
+  if (platform === 'gemini') return '/v1beta/models'
+  if (platform === 'antigravity') return '/antigravity/models'
+  return '/v1/models'
+}
+
+const getErrorMessage = async (response: Response) => {
+  try {
+    const data = await response.json()
+    const message =
+      data?.error?.message ||
+      data?.message ||
+      data?.detail ||
+      response.statusText ||
+      `HTTP ${response.status}`
+    return String(message)
+  } catch {
+    return response.statusText || `HTTP ${response.status}`
+  }
+}
+
+const testApiKeyConnection = async (row: ApiKey) => {
+  if (testingKeyId.value !== null) return
+  if (!row.group) {
+    appStore.showError(t('keys.testConnectionNoGroup'))
+    return
+  }
+
+  testingKeyId.value = row.id
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 15000)
+
+  try {
+    const url = `${getGatewayBaseUrl()}${getApiKeyTestPath(row)}`
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${row.key}`,
+        Accept: 'application/json'
+      },
+      signal: controller.signal
+    })
+
+    if (!response.ok) {
+      throw new Error(await getErrorMessage(response))
+    }
+
+    appStore.showSuccess(t('keys.testConnectionSuccess'))
+  } catch (error: unknown) {
+    const message =
+      error instanceof DOMException && error.name === 'AbortError'
+        ? t('keys.testConnectionTimeout')
+        : error instanceof Error && error.message
+          ? error.message
+          : t('keys.testConnectionFailed')
+    appStore.showError(`${t('keys.testConnectionFailed')}: ${message}`)
+  } finally {
+    window.clearTimeout(timeout)
+    testingKeyId.value = null
   }
 }
 
