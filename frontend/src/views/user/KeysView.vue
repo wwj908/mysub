@@ -328,6 +328,14 @@
                 <Icon name="upload" size="sm" />
                 <span class="text-xs">{{ t('keys.importToCcSwitch') }}</span>
               </button>
+              <!-- Export BAT Button -->
+              <button
+                @click="exportCodexBat(row)"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-900/20 dark:hover:text-cyan-400"
+              >
+                <Icon name="download" size="sm" />
+                <span class="text-xs">{{ t('keys.exportBat') }}</span>
+              </button>
               <!-- Toggle Status Button -->
               <button
                 @click="toggleKeyStatus(row)"
@@ -1272,6 +1280,91 @@ const copyToClipboard = async (text: string, keyId: number) => {
     setTimeout(() => {
       copiedKeyId.value = null
     }, 800)
+  }
+}
+
+const escapeBatchValue = (value: string) => {
+  return value.replace(/[%^&|<>]/g, (char) => `^${char}`)
+}
+
+const sanitizeFileName = (value: string) => {
+  const name = value.trim().replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g, '_')
+  return name || 'api-key'
+}
+
+const buildCodexBatContent = (row: ApiKey) => {
+  const baseUrl = publicSettings.value?.api_base_url || window.location.origin
+  const escapedBaseUrl = escapeBatchValue(baseUrl)
+  const escapedApiKey = escapeBatchValue(row.key)
+
+  return [
+    '@echo off',
+    'chcp 65001 >nul',
+    'setlocal',
+    'set "target_dir="',
+    'echo 正在全盘搜索 .codex 文件夹...',
+    '',
+    'for %%d in (C D E F G H I J K L M N O P Q R S T U V W X Y Z) do (',
+    '    if exist "%%d:\\" (',
+    '        for /f "delims=" %%p in (\'dir /s /b /ad "%%d:\\.codex" 2^>nul\') do (',
+    '            set "target_dir=%%p"',
+    '            goto found',
+    '        )',
+    '    )',
+    ')',
+    '',
+    ':found',
+    'if not defined target_dir (',
+    '    echo 未在电脑找到 .codex 文件夹',
+    '    pause',
+    '    exit /b 1',
+    ')',
+    '',
+    'echo 找到目录：%target_dir%',
+    'if exist "%target_dir%\\config.toml" copy /y "%target_dir%\\config.toml" "%target_dir%\\config_back.toml" >nul',
+    '> "%target_dir%\\config.toml" echo model_provider = "OpenAI"',
+    '>> "%target_dir%\\config.toml" echo model = "gpt-5.5"',
+    '>> "%target_dir%\\config.toml" echo model_reasoning_effort = "xhigh"',
+    '>> "%target_dir%\\config.toml" echo disable_response_storage = true',
+    '>> "%target_dir%\\config.toml" echo(',
+    '>> "%target_dir%\\config.toml" echo [model_providers.OpenAI]',
+    '>> "%target_dir%\\config.toml" echo name = "OpenAI"',
+    `>> "%target_dir%\\config.toml" echo base_url = "${escapedBaseUrl}"`,
+    '>> "%target_dir%\\config.toml" echo wire_api = "responses"',
+    '>> "%target_dir%\\config.toml" echo requires_openai_auth = true',
+    '',
+    'if exist "%target_dir%\\auth.json" copy /y "%target_dir%\\auth.json" "%target_dir%\\auth_back.json" >nul',
+    '> "%target_dir%\\auth.json" echo {',
+    `>> "%target_dir%\\auth.json" echo   "OPENAI_API_KEY": "${escapedApiKey}"`,
+    '>> "%target_dir%\\auth.json" echo }',
+    '',
+    'echo.',
+    'echo =========配置修改完毕=========',
+    'echo config.toml：',
+    'type "%target_dir%\\config.toml"',
+    'echo.',
+    'echo auth.json：',
+    'type "%target_dir%\\auth.json"',
+    'pause',
+    ''
+  ].join('\r\n')
+}
+
+const exportCodexBat = (row: ApiKey) => {
+  try {
+    const content = buildCodexBatContent(row)
+    const blob = new Blob(['\ufeff', content], { type: 'application/x-bat;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${sanitizeFileName(row.name)}-codex.bat`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+    appStore.showSuccess(t('keys.batExportSuccess'))
+  } catch {
+    appStore.showError(t('keys.batExportFailed'))
   }
 }
 
