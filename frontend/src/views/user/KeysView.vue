@@ -1388,11 +1388,115 @@ const getGatewayBaseUrl = () => {
   return (publicSettings.value?.api_base_url || window.location.origin).replace(/\/+$/, '')
 }
 
-const getApiKeyTestPath = (row: ApiKey) => {
+const getApiKeyModelsPath = (row: ApiKey) => {
   const platform = row.group?.platform || 'anthropic'
   if (platform === 'gemini') return '/v1beta/models'
   if (platform === 'antigravity') return '/antigravity/models'
   return '/v1/models'
+}
+
+const normalizeModelID = (model: string) => {
+  return model.replace(/^models\//, '').trim()
+}
+
+const getModelIDFromItem = (item: unknown) => {
+  if (!item || typeof item !== 'object') return ''
+  const model = item as { id?: unknown; name?: unknown; model?: unknown }
+  const value = model.id || model.name || model.model
+  return typeof value === 'string' ? normalizeModelID(value) : ''
+}
+
+const isBillableTestModel = (modelID: string) => {
+  const id = modelID.toLowerCase()
+  return Boolean(id) &&
+    !id.includes('image') &&
+    !id.includes('embedding') &&
+    !id.includes('moderation') &&
+    !id.includes('rerank')
+}
+
+const pickTestModel = (models: unknown, platform: GroupPlatform) => {
+  const items = Array.isArray((models as { data?: unknown[] })?.data)
+    ? (models as { data: unknown[] }).data
+    : Array.isArray((models as { models?: unknown[] })?.models)
+      ? (models as { models: unknown[] }).models
+      : Array.isArray(models)
+        ? models
+        : []
+
+  const ids = items.map(getModelIDFromItem).filter(isBillableTestModel)
+  const preferred =
+    platform === 'openai'
+      ? ids.find((id) => id.startsWith('gpt-5.4-mini')) || ids.find((id) => id.startsWith('gpt-'))
+      : platform === 'gemini'
+        ? ids.find((id) => id.includes('flash')) || ids.find((id) => id.startsWith('gemini-'))
+        : ids.find((id) => id.includes('haiku')) || ids.find((id) => id.includes('sonnet'))
+
+  return preferred || ids[0] || ''
+}
+
+const fetchApiKeyModels = async (row: ApiKey, signal: AbortSignal) => {
+  const response = await fetch(`${getGatewayBaseUrl()}${getApiKeyModelsPath(row)}`, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${row.key}`,
+      Accept: 'application/json'
+    },
+    signal
+  })
+
+  if (!response.ok) {
+    throw new Error(await getErrorMessage(response))
+  }
+
+  return response.json()
+}
+
+const getBillableTestRequest = (row: ApiKey, model: string) => {
+  const platform = row.group?.platform || 'anthropic'
+  const text = 'hi'
+
+  if (platform === 'openai') {
+    return {
+      path: '/v1/responses',
+      body: {
+        model,
+        input: text,
+        stream: false,
+        store: false,
+        max_output_tokens: 1
+      }
+    }
+  }
+
+  if (platform === 'gemini') {
+    return {
+      path: `/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      body: {
+        contents: [{ role: 'user', parts: [{ text }] }],
+        generationConfig: { maxOutputTokens: 1 }
+      }
+    }
+  }
+
+  if (platform === 'antigravity' && model.toLowerCase().startsWith('gemini-')) {
+    return {
+      path: `/antigravity/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+      body: {
+        contents: [{ role: 'user', parts: [{ text }] }],
+        generationConfig: { maxOutputTokens: 1 }
+      }
+    }
+  }
+
+  return {
+    path: platform === 'antigravity' ? '/antigravity/v1/messages' : '/v1/messages',
+    body: {
+      model,
+      max_tokens: 1,
+      messages: [{ role: 'user', content: text }]
+    }
+  }
 }
 
 const getErrorMessage = async (response: Response) => {
@@ -1419,16 +1523,25 @@ const testApiKeyConnection = async (row: ApiKey) => {
 
   testingKeyId.value = row.id
   const controller = new AbortController()
-  const timeout = window.setTimeout(() => controller.abort(), 15000)
+  const timeout = window.setTimeout(() => controller.abort(), 60000)
 
   try {
-    const url = `${getGatewayBaseUrl()}${getApiKeyTestPath(row)}`
-    const response = await fetch(url, {
-      method: 'GET',
+    const platform = row.group.platform
+    const models = await fetchApiKeyModels(row, controller.signal)
+    const model = pickTestModel(models, platform)
+    if (!model) {
+      throw new Error(t('keys.testConnectionNoModel'))
+    }
+
+    const request = getBillableTestRequest(row, model)
+    const response = await fetch(`${getGatewayBaseUrl()}${request.path}`, {
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${row.key}`,
+        'Content-Type': 'application/json',
         Accept: 'application/json'
       },
+      body: JSON.stringify(request.body),
       signal: controller.signal
     })
 
