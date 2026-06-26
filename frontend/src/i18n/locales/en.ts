@@ -3106,6 +3106,12 @@ export default {
       crsUpdateBehaviorNote:
         'Existing accounts only sync fields returned by CRS; missing fields keep their current values. Credentials are merged by key — keys not returned by CRS are preserved. Proxies are kept when "Sync proxies" is unchecked.',
       crsBack: 'Back',
+      open: 'Open',
+      openBaseUrl: 'Open Base URL',
+      openKeysPage: 'Open Keys page',
+      openInNewTab: 'Open in new tab',
+      noBaseUrl: 'This account has no Base URL configured',
+      iframeBlockedHint: 'If the page is blank or refuses to load, the target site blocks embedded display. Open it in a new tab instead.',
       editAccount: 'Edit Account',
       deleteAccount: 'Delete Account',
       searchAccounts: 'Search accounts...',
@@ -6905,6 +6911,10 @@ export default {
     fee: 'Fee',
     actualPay: 'Actual Payment',
     createOrder: 'Confirm Payment',
+    externalCheckoutTitle: 'Online recharge / subscription',
+    externalCheckoutBack: 'Back',
+    openExternalCheckout: 'Open in new window',
+    externalCheckoutIframeHint: 'If the page is blank or payment cannot continue, the target site may block embedded display. Open it in a new window instead.',
     methods: {
       easypay: 'EasyPay',
       alipay: 'Alipay',

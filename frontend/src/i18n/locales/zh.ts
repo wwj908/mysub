@@ -3181,6 +3181,12 @@ export default {
       crsUpdateBehaviorNote:
         '已有账号仅同步 CRS 返回的字段，缺失字段保持原值；凭据按键合并，不会清空未下发的键；未勾选"同步代理"时保留原有代理。',
       crsBack: '返回',
+      open: '打开',
+      openBaseUrl: '打开 Base URL',
+      openKeysPage: '打开 Keys 页面',
+      openInNewTab: '新标签打开',
+      noBaseUrl: '该账号未配置 Base URL',
+      iframeBlockedHint: '如果页面空白或拒绝加载，说明目标站点禁止内嵌显示，请使用新标签打开。',
       editAccount: '编辑账号',
       deleteAccount: '删除账号',
       deleteConfirmMessage: "确定要删除账号 '{name}' 吗？",
@@ -7085,6 +7091,10 @@ export default {
     fee: '手续费',
     actualPay: '实付金额',
     createOrder: '确认支付',
+    externalCheckoutTitle: '在线充值/订阅',
+    externalCheckoutBack: '返回',
+    openExternalCheckout: '新窗口打开',
+    externalCheckoutIframeHint: '如果页面空白或无法支付，说明目标网站可能限制内嵌显示，请点击右上角在新窗口打开。',
     methods: {
       easypay: '易支付',
       alipay: '支付宝',

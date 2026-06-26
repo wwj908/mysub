@@ -346,6 +346,15 @@
           </template>
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
+              <button
+                @click="handleOpenBaseUrl(row)"
+                :disabled="!getAccountBaseUrl(row)"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-sky-50 hover:text-sky-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:hover:bg-sky-900/20 dark:hover:text-sky-300"
+                :title="getAccountKeysUrl(row) || t('admin.accounts.noBaseUrl')"
+              >
+                <Icon name="externalLink" size="sm" />
+                <span class="text-xs">{{ t('admin.accounts.open') }}</span>
+              </button>
               <button @click="handleEdit(row)" class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400">
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
                 <span class="text-xs">{{ t('common.edit') }}</span>
@@ -371,7 +380,55 @@
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
     <ScheduledTestsPanel :show="showSchedulePanel" :account-id="scheduleAcc?.id ?? null" :model-options="scheduleModelOptions" @close="closeSchedulePanel" />
-    <AccountActionMenu :show="menu.show" :account="menu.acc" :position="menu.pos" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @schedule="handleSchedule" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" />
+    <AccountActionMenu :show="menu.show" :account="menu.acc" :position="menu.pos" @close="menu.show = false" @test="handleTest" @stats="handleViewStats" @open-base-url="handleOpenBaseUrl" @schedule="handleSchedule" @reauth="handleReAuth" @refresh-token="handleRefresh" @recover-state="handleRecoverState" @reset-quota="handleResetQuota" @set-privacy="handleSetPrivacy" />
+    <Teleport to="body">
+      <div
+        v-if="showBaseUrlFrame"
+        class="fixed inset-0 z-[110] flex items-center justify-center bg-gray-950/70 p-3 backdrop-blur-sm md:p-6"
+        @click.self="closeBaseUrlFrame"
+      >
+        <div class="flex h-[88vh] w-full max-w-7xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl ring-1 ring-black/10 dark:bg-dark-900 dark:ring-white/10">
+          <div class="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-dark-700">
+            <div class="min-w-0">
+              <h3 class="truncate text-base font-semibold text-gray-900 dark:text-white">
+                {{ baseUrlFrameAccount?.name || t('admin.accounts.openKeysPage') }}
+              </h3>
+              <p class="truncate text-xs text-gray-500 dark:text-gray-400" :title="baseUrlFrameUrl">
+                {{ baseUrlFrameUrl }}
+              </p>
+            </div>
+            <div class="flex flex-shrink-0 items-center gap-2">
+              <a
+                v-if="baseUrlFrameUrl"
+                :href="baseUrlFrameUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn btn-secondary px-3 py-2 text-sm"
+              >
+                <Icon name="externalLink" size="sm" />
+                <span class="hidden sm:inline">{{ t('admin.accounts.openInNewTab') }}</span>
+              </a>
+              <button class="rounded-lg p-2 text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:hover:bg-dark-700 dark:hover:text-white" @click="closeBaseUrlFrame">
+                <Icon name="x" size="md" />
+              </button>
+            </div>
+          </div>
+          <div class="relative min-h-0 flex-1 bg-gray-50 dark:bg-dark-950">
+            <iframe
+              v-if="baseUrlFrameUrl"
+              :key="baseUrlFrameUrl"
+              :src="baseUrlFrameUrl"
+              class="h-full w-full border-0 bg-white"
+              referrerpolicy="no-referrer"
+              sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+            ></iframe>
+            <div class="pointer-events-none absolute bottom-4 left-1/2 w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 rounded-lg border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-800 shadow-sm dark:border-amber-700/50 dark:bg-amber-900/80 dark:text-amber-100">
+              {{ t('admin.accounts.iframeBlockedHint') }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
     <SyncFromCrsModal :show="showSync" @close="showSync = false" @synced="reload" />
     <ImportDataModal :show="showImportData" @close="showImportData = false" @imported="handleDataImported" />
     <BulkEditAccountModal
@@ -499,6 +556,7 @@ const showDeleteDialog = ref(false)
 const showReAuth = ref(false)
 const showTest = ref(false)
 const showStats = ref(false)
+const showBaseUrlFrame = ref(false)
 const showErrorPassthrough = ref(false)
 const showTLSFingerprintProfiles = ref(false)
 const edAcc = ref<Account | null>(null)
@@ -507,6 +565,8 @@ const deletingAcc = ref<Account | null>(null)
 const reAuthAcc = ref<Account | null>(null)
 const testingAcc = ref<Account | null>(null)
 const statsAcc = ref<Account | null>(null)
+const baseUrlFrameAccount = ref<Account | null>(null)
+const baseUrlFrameUrl = ref('')
 const showSchedulePanel = ref(false)
 const scheduleAcc = ref<Account | null>(null)
 const scheduleModelOptions = ref<SelectOption[]>([])
@@ -878,6 +938,7 @@ const isAnyModalOpen = computed(() => {
     showReAuth.value ||
     showTest.value ||
     showStats.value ||
+    showBaseUrlFrame.value ||
     showSchedulePanel.value ||
     showErrorPassthrough.value ||
     showTLSFingerprintProfiles.value
@@ -1177,6 +1238,46 @@ const cols = computed(() =>
 )
 
 const handleEdit = (a: Account) => { edAcc.value = a; showEdit.value = true }
+const normalizeBaseUrl = (value: string) => {
+  const trimmed = value.trim()
+  if (!trimmed) return ''
+  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+}
+const getAccountBaseUrl = (account: Account) => {
+  const customBaseUrl = account.custom_base_url_enabled && typeof account.custom_base_url === 'string'
+    ? account.custom_base_url
+    : ''
+  const credentialBaseUrl = typeof account.credentials?.base_url === 'string'
+    ? account.credentials.base_url
+    : typeof account.credentials?.api_base_url === 'string'
+      ? account.credentials.api_base_url
+      : ''
+  return normalizeBaseUrl(customBaseUrl || credentialBaseUrl)
+}
+const getAccountKeysUrl = (account: Account) => {
+  const baseUrl = getAccountBaseUrl(account)
+  if (!baseUrl) return ''
+  try {
+    return new URL('/keys', baseUrl).toString()
+  } catch {
+    return ''
+  }
+}
+const handleOpenBaseUrl = (account: Account) => {
+  const url = getAccountKeysUrl(account)
+  if (!url) {
+    appStore.showError(t('admin.accounts.noBaseUrl'))
+    return
+  }
+  baseUrlFrameAccount.value = account
+  baseUrlFrameUrl.value = url
+  showBaseUrlFrame.value = true
+}
+const closeBaseUrlFrame = () => {
+  showBaseUrlFrame.value = false
+  baseUrlFrameAccount.value = null
+  baseUrlFrameUrl.value = ''
+}
 const openMenu = (a: Account, e: MouseEvent) => {
   menu.acc = a
 

@@ -18,6 +18,10 @@
               <Icon name="chart" size="sm" class="text-indigo-500" />
               {{ t('admin.accounts.viewStats') }}
             </button>
+            <button v-if="hasBaseUrl" @click="$emit('open-base-url', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-700">
+              <Icon name="externalLink" size="sm" class="text-sky-500" />
+              {{ t('admin.accounts.openKeysPage') }}
+            </button>
             <button @click="$emit('schedule', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-dark-700">
               <Icon name="clock" size="sm" class="text-orange-500" />
               {{ t('admin.scheduledTests.schedule') }}
@@ -59,8 +63,20 @@ import { Icon } from '@/components/icons'
 import type { Account } from '@/types'
 
 const props = defineProps<{ show: boolean; account: Account | null; position: { top: number; left: number } | null }>()
-const emit = defineEmits(['close', 'test', 'stats', 'schedule', 'reauth', 'refresh-token', 'recover-state', 'reset-quota', 'set-privacy'])
+const emit = defineEmits(['close', 'test', 'stats', 'open-base-url', 'schedule', 'reauth', 'refresh-token', 'recover-state', 'reset-quota', 'set-privacy'])
 const { t } = useI18n()
+const hasBaseUrl = computed(() => {
+  const customBaseUrl = props.account?.custom_base_url_enabled && typeof props.account?.custom_base_url === 'string'
+    ? props.account.custom_base_url.trim()
+    : ''
+  const credentials = props.account?.credentials
+  const credentialBaseUrl = typeof credentials?.base_url === 'string'
+    ? credentials.base_url.trim()
+    : typeof credentials?.api_base_url === 'string'
+      ? credentials.api_base_url.trim()
+      : ''
+  return Boolean(customBaseUrl || credentialBaseUrl)
+})
 const isRateLimited = computed(() => {
   if (props.account?.rate_limit_reset_at && new Date(props.account.rate_limit_reset_at) > new Date()) {
     return true

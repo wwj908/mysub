@@ -1,12 +1,53 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-4xl space-y-6">
+    <div class="flex h-[calc(100vh-8rem)] min-h-[720px] w-full max-w-none flex-col space-y-6">
       <div v-if="loading" class="flex items-center justify-center py-20">
         <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
       </div>
       <template v-else>
+        <div v-if="paymentPhase === 'select' && !selectedPlan" class="card flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 dark:border-dark-700">
+            <div class="flex min-w-0 items-center gap-3">
+              <button
+                type="button"
+                class="btn btn-secondary px-3 py-2 text-sm"
+                @click="goBackExternalCheckout"
+              >
+                <Icon name="arrowLeft" size="sm" />
+                <span>{{ t('payment.externalCheckoutBack') }}</span>
+              </button>
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('payment.externalCheckoutTitle') }}</p>
+                <p class="truncate text-xs text-gray-500 dark:text-gray-400" :title="externalPurchaseUrl">{{ externalPurchaseUrl }}</p>
+              </div>
+            </div>
+            <a
+              :href="externalPurchaseUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-secondary px-3 py-2 text-sm"
+            >
+              <Icon name="externalLink" size="sm" />
+              <span class="hidden sm:inline">{{ t('payment.openExternalCheckout') }}</span>
+            </a>
+          </div>
+          <div class="relative min-h-0 flex-1 bg-gray-50 dark:bg-dark-950">
+            <iframe
+              ref="externalCheckoutFrame"
+              :src="externalPurchaseUrl"
+              class="h-full w-full border-0 bg-white"
+              allow="payment *"
+              referrerpolicy="no-referrer"
+              sandbox="allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts allow-top-navigation-by-user-activation"
+              @load="handleExternalCheckoutLoad"
+            ></iframe>
+            <div v-if="showExternalCheckoutHint" class="pointer-events-none absolute bottom-4 left-1/2 w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 rounded-lg border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-800 shadow-sm dark:border-amber-700/50 dark:bg-amber-900/90 dark:text-amber-100">
+              {{ t('payment.externalCheckoutIframeHint') }}
+            </div>
+          </div>
+        </div>
         <!-- Tab Switcher (hide during payment and subscription confirm) -->
-        <div v-if="tabs.length > 1 && paymentPhase === 'select' && !selectedPlan" class="flex space-x-1 rounded-xl bg-gray-100 p-1 dark:bg-dark-800">
+        <div v-if="!showEmbeddedCheckoutOnly && tabs.length > 1 && paymentPhase === 'select' && !selectedPlan" class="flex space-x-1 rounded-xl bg-gray-100 p-1 dark:bg-dark-800">
           <button v-for="tab in tabs" :key="tab.key"
             class="flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition-all"
             :class="activeTab === tab.key ? 'bg-white text-gray-900 shadow dark:bg-dark-700 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
@@ -28,7 +69,7 @@
           />
         </template>
         <!-- Tab content (select phase) -->
-        <template v-else>
+        <template v-else-if="!showEmbeddedCheckoutOnly">
           <!-- Top-up Tab -->
           <template v-if="activeTab === 'recharge'">
             <!-- Recharge Account Card -->
@@ -206,7 +247,7 @@
             </template>
           </template>
         </template>
-        <div v-if="(checkout.help_text || checkout.help_image_url) && paymentPhase === 'select' && !selectedPlan" class="card p-4">
+        <div v-if="!showEmbeddedCheckoutOnly && (checkout.help_text || checkout.help_image_url) && paymentPhase === 'select' && !selectedPlan" class="card p-4">
           <div class="flex flex-col items-center gap-3">
             <img v-if="checkout.help_image_url" :src="checkout.help_image_url" alt=""
               class="h-40 max-w-full cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-80"
@@ -245,7 +286,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -291,6 +332,45 @@ const appStore = useAppStore()
 
 const user = computed(() => authStore.user)
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
+const externalPurchaseUrl = 'https://pay.ldxp.cn/shop/AQ9UJ22M'
+const showEmbeddedCheckoutOnly = true
+const externalCheckoutFrame = ref<HTMLIFrameElement | null>(null)
+const externalCheckoutLoaded = ref(false)
+const showExternalCheckoutHint = ref(false)
+let externalCheckoutHintTimer: number | undefined
+
+function clearExternalCheckoutHintTimer() {
+  if (externalCheckoutHintTimer) {
+    window.clearTimeout(externalCheckoutHintTimer)
+    externalCheckoutHintTimer = undefined
+  }
+}
+
+function scheduleExternalCheckoutHint() {
+  clearExternalCheckoutHintTimer()
+  showExternalCheckoutHint.value = false
+  externalCheckoutHintTimer = window.setTimeout(() => {
+    if (!externalCheckoutLoaded.value) {
+      showExternalCheckoutHint.value = true
+    }
+  }, 8000)
+}
+
+function handleExternalCheckoutLoad() {
+  externalCheckoutLoaded.value = true
+  showExternalCheckoutHint.value = false
+  clearExternalCheckoutHintTimer()
+}
+
+function goBackExternalCheckout() {
+  const frameWindow = externalCheckoutFrame.value?.contentWindow
+  if (!frameWindow) return
+  try {
+    frameWindow.history.back()
+  } catch {
+    externalCheckoutFrame.value!.src = externalPurchaseUrl
+  }
+}
 
 function getDaysRemaining(expiresAt: string): number {
   const diff = new Date(expiresAt).getTime() - Date.now()
@@ -1015,6 +1095,7 @@ async function resumeWechatPaymentFromQuery() {
 }
 
 onMounted(async () => {
+  scheduleExternalCheckoutHint()
   try {
     const res = await paymentAPI.getCheckoutInfo()
     checkout.value = res.data
@@ -1073,5 +1154,9 @@ onMounted(async () => {
   finally { loading.value = false }
   // Fetch active subscriptions (uses cache, non-blocking)
   subscriptionStore.fetchActiveSubscriptions().catch(() => {})
+})
+
+onBeforeUnmount(() => {
+  clearExternalCheckoutHintTimer()
 })
 </script>
