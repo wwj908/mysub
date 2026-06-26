@@ -1,3 +1,6 @@
+以后就按你这个脚本部署即可，服务器现在已经补好了 `.env` 里的 `SERVER_TRUSTED_PROXIES` 配置：
+
+```bash
 cd /opt/sub2api
 git pull origin main
 
@@ -10,3 +13,13 @@ else
   docker compose -f docker-compose.yml -f docker-compose.override.yml build --no-cache sub2api
   docker compose -f docker-compose.yml -f docker-compose.override.yml up -d --force-recreate sub2api
 fi
+```
+
+部署后可以检查：
+
+```bash
+docker compose -f docker-compose.local.yml -f docker-compose.override.yml ps sub2api
+curl -i http://127.0.0.1:8080/health
+```
+
+这次修复目前是直接应用在服务器工作区里的改动。如果你之后执行 `git reset --hard` 或服务器重新克隆仓库，需要先把这次代码改动提交/推到 `origin main`，否则代码层修复会丢；不过 `.env` 里的 `SERVER_TRUSTED_PROXIES` 不会被 `git pull` 覆盖。
