@@ -28,10 +28,12 @@ func (s *updateServiceCacheStub) SetUpdateInfo(_ context.Context, data string, _
 }
 
 type updateServiceGitHubClientStub struct {
-	release *GitHubRelease
+	release     *GitHubRelease
+	requestRepo string
 }
 
-func (s *updateServiceGitHubClientStub) FetchLatestRelease(context.Context, string) (*GitHubRelease, error) {
+func (s *updateServiceGitHubClientStub) FetchLatestRelease(_ context.Context, repo string) (*GitHubRelease, error) {
+	s.requestRepo = repo
 	return s.release, nil
 }
 
@@ -61,4 +63,20 @@ func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, errors.Is(err, ErrNoUpdateAvailable))
 	require.ErrorIs(t, err, ErrNoUpdateAvailable)
+}
+
+func TestUpdateServiceChecksConfiguredGitHubRepository(t *testing.T) {
+	client := &updateServiceGitHubClientStub{
+		release: &GitHubRelease{
+			TagName: "v0.1.138",
+			Name:    "v0.1.138",
+		},
+	}
+	svc := NewUpdateService(&updateServiceCacheStub{}, client, "0.1.137", "release")
+
+	info, err := svc.CheckUpdate(context.Background(), true)
+
+	require.NoError(t, err)
+	require.Equal(t, "wwj908/mysub", client.requestRepo)
+	require.True(t, info.HasUpdate)
 }
