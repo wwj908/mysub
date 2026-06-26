@@ -1,0 +1,12 @@
+cd /opt/sub2api
+git pull origin main
+
+cd /opt/sub2api/deploy
+
+if [ -d postgres_data ]; then
+  docker compose -f docker-compose.local.yml -f docker-compose.override.yml build --no-cache sub2api
+  docker compose -f docker-compose.local.yml -f docker-compose.override.yml up -d --force-recreate sub2api
+else
+  docker compose -f docker-compose.yml -f docker-compose.override.yml build --no-cache sub2api
+  docker compose -f docker-compose.yml -f docker-compose.override.yml up -d --force-recreate sub2api
+fi

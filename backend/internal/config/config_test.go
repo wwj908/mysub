@@ -803,12 +803,32 @@ func TestConfigAddressHelpers(t *testing.T) {
 }
 
 func TestNormalizeStringSlice(t *testing.T) {
-	values := normalizeStringSlice([]string{" a ", "", "b", "   ", "c"})
-	if len(values) != 3 || values[0] != "a" || values[1] != "b" || values[2] != "c" {
+	values := normalizeStringSlice([]string{" a ", "", "b,c", "   ", "d, e "})
+	if len(values) != 5 || values[0] != "a" || values[1] != "b" || values[2] != "c" || values[3] != "d" || values[4] != "e" {
 		t.Fatalf("normalizeStringSlice() unexpected result: %#v", values)
 	}
 	if normalizeStringSlice(nil) != nil {
 		t.Fatalf("normalizeStringSlice(nil) expected nil slice")
+	}
+}
+
+func TestLoadTrustedProxiesFromEnv(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SERVER_TRUSTED_PROXIES", "127.0.0.1,172.16.0.0/12, ::1 ")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	want := []string{"127.0.0.1", "172.16.0.0/12", "::1"}
+	if len(cfg.Server.TrustedProxies) != len(want) {
+		t.Fatalf("TrustedProxies = %#v, want %#v", cfg.Server.TrustedProxies, want)
+	}
+	for i := range want {
+		if cfg.Server.TrustedProxies[i] != want[i] {
+			t.Fatalf("TrustedProxies = %#v, want %#v", cfg.Server.TrustedProxies, want)
+		}
 	}
 }
 

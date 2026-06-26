@@ -10,6 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 )
 
 // RateLimitFailureMode Redis 故障策略
@@ -88,8 +90,8 @@ func (r *RateLimiter) LimitWithOptions(key string, limit int, window time.Durati
 	}
 
 	return func(c *gin.Context) {
-		ip := c.ClientIP()
-		redisKey := r.prefix + key + ":" + ip
+		clientIP := ip.GetClientIP(c)
+		redisKey := r.prefix + key + ":" + clientIP
 
 		ctx := c.Request.Context()
 
