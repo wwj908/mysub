@@ -9,6 +9,7 @@ import type { Toast, ToastType, PublicSettings } from '@/types'
 import { i18n } from '@/i18n'
 import {
   checkUpdates as checkUpdatesAPI,
+  type UpdateRepo,
   type VersionInfo,
   type ReleaseInfo
 } from '@/api/admin/system'
@@ -238,9 +239,9 @@ export const useAppStore = defineStore('app', () => {
    * Fetch version info (uses cache unless force=true)
    * @param force - Force refresh from API
    */
-  async function fetchVersion(force = false): Promise<VersionInfo | null> {
+  async function fetchVersion(force = false, repo?: UpdateRepo): Promise<VersionInfo | null> {
     // Return cached data if available and not forcing refresh
-    if (versionLoaded.value && !force) {
+    if (versionLoaded.value && !force && !repo) {
       return {
         current_version: currentVersion.value,
         latest_version: latestVersion.value,
@@ -258,7 +259,7 @@ export const useAppStore = defineStore('app', () => {
 
     versionLoading.value = true
     try {
-      const data = await checkUpdatesAPI(force)
+      const data = await checkUpdatesAPI(force, repo)
       currentVersion.value = data.current_version
       latestVersion.value = data.latest_version
       hasUpdate.value = data.has_update

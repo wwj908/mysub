@@ -19,7 +19,10 @@ export interface VersionInfo {
   cached: boolean
   warning?: string
   build_type: string // "source" for manual builds, "release" for CI builds
+  update_repo?: string
 }
+
+export type UpdateRepo = 'wwj908/mysub' | 'Wei-Shaw/sub2api'
 
 /**
  * Get current version
@@ -33,9 +36,12 @@ export async function getVersion(): Promise<{ version: string }> {
  * Check for updates
  * @param force - Force refresh from GitHub API
  */
-export async function checkUpdates(force = false): Promise<VersionInfo> {
+export async function checkUpdates(force = false, repo?: UpdateRepo): Promise<VersionInfo> {
   const { data } = await apiClient.get<VersionInfo>('/admin/system/check-updates', {
-    params: force ? { force: 'true' } : undefined
+    params: {
+      ...(force ? { force: 'true' } : {}),
+      ...(repo ? { repo } : {})
+    }
   })
   return data
 }
@@ -49,8 +55,8 @@ export interface UpdateResult {
  * Perform system update
  * Downloads and applies the latest version
  */
-export async function performUpdate(): Promise<UpdateResult> {
-  const { data } = await apiClient.post<UpdateResult>('/admin/system/update')
+export async function performUpdate(repo?: UpdateRepo): Promise<UpdateResult> {
+  const { data } = await apiClient.post<UpdateResult>('/admin/system/update', repo ? { repo } : undefined)
   return data
 }
 

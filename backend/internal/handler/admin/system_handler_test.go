@@ -3,6 +3,7 @@
 package admin
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,20 +18,24 @@ import (
 )
 
 type systemHandlerUpdateServiceStub struct {
-	performErr  error
-	updateInfo  *service.UpdateInfo
-	checkErr    error
-	checkForces []bool
-	performCall int
+	performErr   error
+	updateInfo   *service.UpdateInfo
+	checkErr     error
+	checkForces  []bool
+	checkRepos   []string
+	performRepos []string
+	performCall  int
 }
 
-func (s *systemHandlerUpdateServiceStub) CheckUpdate(_ context.Context, force bool) (*service.UpdateInfo, error) {
+func (s *systemHandlerUpdateServiceStub) CheckUpdate(_ context.Context, force bool, repo string) (*service.UpdateInfo, error) {
 	s.checkForces = append(s.checkForces, force)
+	s.checkRepos = append(s.checkRepos, repo)
 	return s.updateInfo, s.checkErr
 }
 
-func (s *systemHandlerUpdateServiceStub) PerformUpdate(context.Context) error {
+func (s *systemHandlerUpdateServiceStub) PerformUpdate(_ context.Context, repo string) error {
 	s.performCall++
+	s.performRepos = append(s.performRepos, repo)
 	return s.performErr
 }
 
@@ -106,7 +111,9 @@ func TestSystemHandlerPerformUpdateAlreadyUpToDateReturnsOK(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, 1, updateSvc.performCall)
+	require.Equal(t, []string{service.DefaultUpdateRepo}, updateSvc.performRepos)
 	require.Equal(t, []bool{false}, updateSvc.checkForces)
+	require.Equal(t, []string{service.DefaultUpdateRepo}, updateSvc.checkRepos)
 	requireSystemLockStatus(t, repo, service.IdempotencyStatusSucceeded)
 
 	var body systemUpdateResponseEnvelope
@@ -134,6 +141,7 @@ func TestSystemHandlerPerformUpdateFailureStillReturnsInternalError(t *testing.T
 
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 	require.Equal(t, 1, updateSvc.performCall)
+	require.Equal(t, []string{service.DefaultUpdateRepo}, updateSvc.performRepos)
 	require.Empty(t, updateSvc.checkForces)
 	requireSystemLockStatus(t, repo, service.IdempotencyStatusFailedRetryable)
 
@@ -141,4 +149,23 @@ func TestSystemHandlerPerformUpdateFailureStillReturnsInternalError(t *testing.T
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	require.Equal(t, http.StatusInternalServerError, body.Code)
 	require.Equal(t, "internal error", body.Message)
+}
+
+func TestSystemHandlerPerformUpdatePassesSelectedRepo(t *testing.T) {
+	updateSvc := &systemHandlerUpdateServiceStub{}
+	repo := newMemoryIdempotencyRepoStub()
+	router := newSystemHandlerTestRouter(t, updateSvc, repo)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/system/update",
+		bytes.NewBufferString(`{"repo":"Wei-Shaw/sub2api"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Idempotency-Key", "official-repo")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, []string{service.OfficialUpdateRepo}, updateSvc.performRepos)
 }

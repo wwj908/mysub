@@ -77,6 +77,21 @@
 
             <!-- Content -->
             <template v-else>
+              <div class="mb-4">
+                <label class="mb-1 block text-xs font-medium text-gray-500 dark:text-dark-400">
+                  {{ t('version.updateSource') }}
+                </label>
+                <select
+                  v-model="selectedUpdateRepo"
+                  class="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 outline-none transition-colors focus:border-primary-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-200"
+                  @change="refreshVersion(true)"
+                >
+                  <option v-for="source in updateSources" :key="source.repo" :value="source.repo">
+                    {{ source.label }}
+                  </option>
+                </select>
+              </div>
+
               <!-- Version display - centered and prominent -->
               <div class="mb-4 text-center">
                 <div class="inline-flex items-center gap-2">
@@ -384,7 +399,7 @@
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
-import { performUpdate, restartService } from '@/api/admin/system'
+import { performUpdate, restartService, type UpdateRepo } from '@/api/admin/system'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
@@ -400,6 +415,11 @@ const isAdmin = computed(() => authStore.isAdmin)
 
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
+const updateSources: Array<{ repo: UpdateRepo; label: string }> = [
+  { repo: 'wwj908/mysub', label: 'wwj908/mysub' },
+  { repo: 'Wei-Shaw/sub2api', label: 'Wei-Shaw/sub2api' }
+]
+const selectedUpdateRepo = ref<UpdateRepo>('wwj908/mysub')
 
 // Use store's cached version state
 const loading = computed(() => appStore.versionLoading)
@@ -436,7 +456,7 @@ async function refreshVersion(force = true) {
   updateSuccess.value = false
   needRestart.value = false
 
-  await appStore.fetchVersion(force)
+  await appStore.fetchVersion(force, selectedUpdateRepo.value)
 }
 
 async function handleUpdate() {
@@ -447,7 +467,7 @@ async function handleUpdate() {
   updateSuccess.value = false
 
   try {
-    const result = await performUpdate()
+    const result = await performUpdate(selectedUpdateRepo.value)
     updateSuccess.value = true
     needRestart.value = result.need_restart
     // Clear version cache to reflect update completed
@@ -524,7 +544,7 @@ function handleClickOutside(event: MouseEvent) {
 onMounted(() => {
   if (isAdmin.value) {
     // Use cached version if available, otherwise fetch
-    appStore.fetchVersion(false)
+    appStore.fetchVersion(false, selectedUpdateRepo.value)
   }
   document.addEventListener('click', handleClickOutside)
 })

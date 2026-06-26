@@ -23,9 +23,13 @@ type SystemHandler struct {
 }
 
 type systemUpdateService interface {
-	CheckUpdate(ctx context.Context, force bool) (*service.UpdateInfo, error)
-	PerformUpdate(ctx context.Context) error
+	CheckUpdate(ctx context.Context, force bool, repo string) (*service.UpdateInfo, error)
+	PerformUpdate(ctx context.Context, repo string) error
 	Rollback() error
+}
+
+type systemUpdateRequest struct {
+	Repo string `json:"repo"`
 }
 
 // NewSystemHandler creates a new SystemHandler
@@ -39,7 +43,7 @@ func NewSystemHandler(updateSvc systemUpdateService, lockSvc *service.SystemOper
 // GetVersion returns the current version
 // GET /api/v1/admin/system/version
 func (h *SystemHandler) GetVersion(c *gin.Context) {
-	info, _ := h.updateSvc.CheckUpdate(c.Request.Context(), false)
+	info, _ := h.updateSvc.CheckUpdate(c.Request.Context(), false, "")
 	response.Success(c, gin.H{
 		"version": info.CurrentVersion,
 	})
@@ -49,7 +53,8 @@ func (h *SystemHandler) GetVersion(c *gin.Context) {
 // GET /api/v1/admin/system/check-updates
 func (h *SystemHandler) CheckUpdates(c *gin.Context) {
 	force := c.Query("force") == "true"
-	info, err := h.updateSvc.CheckUpdate(c.Request.Context(), force)
+	repo := c.Query("repo")
+	info, err := h.updateSvc.CheckUpdate(c.Request.Context(), force, repo)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, err.Error())
 		return
@@ -60,8 +65,11 @@ func (h *SystemHandler) CheckUpdates(c *gin.Context) {
 // PerformUpdate downloads and applies the update
 // POST /api/v1/admin/system/update
 func (h *SystemHandler) PerformUpdate(c *gin.Context) {
+	var req systemUpdateRequest
+	_ = c.ShouldBindJSON(&req)
+	updateRepo := service.NormalizeUpdateRepo(req.Repo)
 	operationID := buildSystemOperationID(c, "update")
-	payload := gin.H{"operation_id": operationID}
+	payload := gin.H{"operation_id": operationID, "repo": updateRepo}
 	executeAdminIdempotentJSON(c, "admin.system.update", payload, service.DefaultSystemOperationIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		lock, release, err := h.acquireSystemLock(ctx, operationID)
 		if err != nil {
@@ -73,9 +81,9 @@ func (h *SystemHandler) PerformUpdate(c *gin.Context) {
 			release(releaseReason, succeeded)
 		}()
 
-		if err := h.updateSvc.PerformUpdate(ctx); err != nil {
+		if err := h.updateSvc.PerformUpdate(ctx, updateRepo); err != nil {
 			if errors.Is(err, service.ErrNoUpdateAvailable) {
-				info, checkErr := h.updateSvc.CheckUpdate(ctx, false)
+				info, checkErr := h.updateSvc.CheckUpdate(ctx, false, updateRepo)
 				if checkErr != nil {
 					releaseReason = "SYSTEM_UPDATE_FAILED"
 					return nil, checkErr

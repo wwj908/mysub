@@ -58,7 +58,7 @@ func TestUpdateServicePerformUpdateNoUpdateReturnsSentinel(t *testing.T) {
 		"release",
 	)
 
-	err := svc.PerformUpdate(context.Background())
+	err := svc.PerformUpdate(context.Background(), "")
 
 	require.Error(t, err)
 	require.True(t, errors.Is(err, ErrNoUpdateAvailable))
@@ -74,9 +74,26 @@ func TestUpdateServiceChecksConfiguredGitHubRepository(t *testing.T) {
 	}
 	svc := NewUpdateService(&updateServiceCacheStub{}, client, "0.1.137", "release")
 
-	info, err := svc.CheckUpdate(context.Background(), true)
+	info, err := svc.CheckUpdate(context.Background(), true, "")
 
 	require.NoError(t, err)
 	require.Equal(t, "wwj908/mysub", client.requestRepo)
+	require.True(t, info.HasUpdate)
+}
+
+func TestUpdateServiceChecksOfficialGitHubRepositoryWhenSelected(t *testing.T) {
+	client := &updateServiceGitHubClientStub{
+		release: &GitHubRelease{
+			TagName: "v0.1.138",
+			Name:    "v0.1.138",
+		},
+	}
+	svc := NewUpdateService(&updateServiceCacheStub{}, client, "0.1.137", "release")
+
+	info, err := svc.CheckUpdate(context.Background(), true, OfficialUpdateRepo)
+
+	require.NoError(t, err)
+	require.Equal(t, OfficialUpdateRepo, client.requestRepo)
+	require.Equal(t, OfficialUpdateRepo, info.UpdateRepo)
 	require.True(t, info.HasUpdate)
 }

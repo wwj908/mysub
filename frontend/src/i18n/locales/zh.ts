@@ -6820,6 +6820,7 @@ export default {
     viewUpdate: '查看更新',
     viewRelease: '查看发布',
     viewChangelog: '查看更新日志',
+    updateSource: '更新来源',
     refresh: '刷新',
     sourceMode: '源码构建',
     sourceModeHint: '源码构建请使用 git pull 更新',

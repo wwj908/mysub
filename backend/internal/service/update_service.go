@@ -28,7 +28,9 @@ var (
 const (
 	updateCacheKey = "update_check_cache"
 	updateCacheTTL = 1200 // 20 minutes
-	githubRepo     = "wwj908/mysub"
+
+	DefaultUpdateRepo  = "wwj908/mysub"
+	OfficialUpdateRepo = "Wei-Shaw/sub2api"
 
 	// Security: allowed download domains for updates
 	allowedDownloadHost = "github.com"
@@ -78,6 +80,7 @@ type UpdateInfo struct {
 	Cached         bool         `json:"cached"`
 	Warning        string       `json:"warning,omitempty"`
 	BuildType      string       `json:"build_type"` // "source" or "release"
+	UpdateRepo     string       `json:"update_repo"`
 }
 
 // ReleaseInfo contains GitHub release details
@@ -113,19 +116,20 @@ type GitHubAsset struct {
 }
 
 // CheckUpdate checks for available updates
-func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInfo, error) {
+func (s *UpdateService) CheckUpdate(ctx context.Context, force bool, repo string) (*UpdateInfo, error) {
+	updateRepo := NormalizeUpdateRepo(repo)
 	// Try cache first
 	if !force {
-		if cached, err := s.getFromCache(ctx); err == nil && cached != nil {
+		if cached, err := s.getFromCache(ctx, updateRepo); err == nil && cached != nil {
 			return cached, nil
 		}
 	}
 
 	// Fetch from GitHub
-	info, err := s.fetchLatestRelease(ctx)
+	info, err := s.fetchLatestRelease(ctx, updateRepo)
 	if err != nil {
 		// Return cached on error
-		if cached, cacheErr := s.getFromCache(ctx); cacheErr == nil && cached != nil {
+		if cached, cacheErr := s.getFromCache(ctx, updateRepo); cacheErr == nil && cached != nil {
 			cached.Warning = "Using cached data: " + err.Error()
 			return cached, nil
 		}
@@ -135,18 +139,19 @@ func (s *UpdateService) CheckUpdate(ctx context.Context, force bool) (*UpdateInf
 			HasUpdate:      false,
 			Warning:        err.Error(),
 			BuildType:      s.buildType,
+			UpdateRepo:     updateRepo,
 		}, nil
 	}
 
 	// Cache result
-	s.saveToCache(ctx, info)
+	s.saveToCache(ctx, updateRepo, info)
 	return info, nil
 }
 
 // PerformUpdate downloads and applies the update
 // Uses atomic file replacement pattern for safe in-place updates
-func (s *UpdateService) PerformUpdate(ctx context.Context) error {
-	info, err := s.CheckUpdate(ctx, true)
+func (s *UpdateService) PerformUpdate(ctx context.Context, repo string) error {
+	info, err := s.CheckUpdate(ctx, true, repo)
 	if err != nil {
 		return err
 	}
@@ -279,8 +284,9 @@ func (s *UpdateService) Rollback() error {
 	return nil
 }
 
-func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, error) {
-	release, err := s.githubClient.FetchLatestRelease(ctx, githubRepo)
+func (s *UpdateService) fetchLatestRelease(ctx context.Context, repo string) (*UpdateInfo, error) {
+	updateRepo := NormalizeUpdateRepo(repo)
+	release, err := s.githubClient.FetchLatestRelease(ctx, updateRepo)
 	if err != nil {
 		return nil, err
 	}
@@ -307,9 +313,19 @@ func (s *UpdateService) fetchLatestRelease(ctx context.Context) (*UpdateInfo, er
 			HTMLURL:     release.HTMLURL,
 			Assets:      assets,
 		},
-		Cached:    false,
-		BuildType: s.buildType,
+		Cached:     false,
+		BuildType:  s.buildType,
+		UpdateRepo: updateRepo,
 	}, nil
+}
+
+func NormalizeUpdateRepo(repo string) string {
+	switch strings.TrimSpace(repo) {
+	case OfficialUpdateRepo:
+		return OfficialUpdateRepo
+	default:
+		return DefaultUpdateRepo
+	}
 }
 
 func (s *UpdateService) downloadFile(ctx context.Context, downloadURL, dest string) error {
@@ -473,7 +489,8 @@ func (s *UpdateService) extractBinary(archivePath, destPath string) error {
 	return out.Close()
 }
 
-func (s *UpdateService) getFromCache(ctx context.Context) (*UpdateInfo, error) {
+func (s *UpdateService) getFromCache(ctx context.Context, repo string) (*UpdateInfo, error) {
+	updateRepo := NormalizeUpdateRepo(repo)
 	data, err := s.cache.GetUpdateInfo(ctx)
 	if err != nil {
 		return nil, err
@@ -483,9 +500,13 @@ func (s *UpdateService) getFromCache(ctx context.Context) (*UpdateInfo, error) {
 		Latest      string       `json:"latest"`
 		ReleaseInfo *ReleaseInfo `json:"release_info"`
 		Timestamp   int64        `json:"timestamp"`
+		UpdateRepo  string       `json:"update_repo"`
 	}
 	if err := json.Unmarshal([]byte(data), &cached); err != nil {
 		return nil, err
+	}
+	if NormalizeUpdateRepo(cached.UpdateRepo) != updateRepo {
+		return nil, fmt.Errorf("cache repo mismatch")
 	}
 
 	if time.Now().Unix()-cached.Timestamp > updateCacheTTL {
@@ -499,18 +520,22 @@ func (s *UpdateService) getFromCache(ctx context.Context) (*UpdateInfo, error) {
 		ReleaseInfo:    cached.ReleaseInfo,
 		Cached:         true,
 		BuildType:      s.buildType,
+		UpdateRepo:     updateRepo,
 	}, nil
 }
 
-func (s *UpdateService) saveToCache(ctx context.Context, info *UpdateInfo) {
+func (s *UpdateService) saveToCache(ctx context.Context, repo string, info *UpdateInfo) {
+	updateRepo := NormalizeUpdateRepo(repo)
 	cacheData := struct {
 		Latest      string       `json:"latest"`
 		ReleaseInfo *ReleaseInfo `json:"release_info"`
 		Timestamp   int64        `json:"timestamp"`
+		UpdateRepo  string       `json:"update_repo"`
 	}{
 		Latest:      info.LatestVersion,
 		ReleaseInfo: info.ReleaseInfo,
 		Timestamp:   time.Now().Unix(),
+		UpdateRepo:  updateRepo,
 	}
 
 	data, _ := json.Marshal(cacheData)
