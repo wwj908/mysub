@@ -3,6 +3,7 @@ package admin
 import (
 	"context"
 	"crypto/rand"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -18,6 +19,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
+	_ "github.com/lib/pq"
 	"github.com/gin-gonic/gin"
 )
 
@@ -64,6 +66,29 @@ type SettingHandler struct {
 	paymentService           *service.PaymentService
 	userAttributeService     *service.UserAttributeService
 	notificationEmailService *service.NotificationEmailService
+}
+
+type deploymentSettingsRequest struct {
+	RepoURL             string `json:"repo_url"`
+	Branch              string `json:"branch"`
+	ServerHost          string `json:"server_host"`
+	ServerPort          int    `json:"server_port"`
+	ServerUsername      string `json:"server_username"`
+	ServerPassword      string `json:"server_password"`
+	TargetPath          string `json:"target_path"`
+	DeployCommand       string `json:"deploy_command"`
+	BackendServiceName  string `json:"backend_service_name"`
+	FrontendServiceName string `json:"frontend_service_name"`
+	RedisHost           string `json:"redis_host"`
+	RedisPort           int    `json:"redis_port"`
+	RedisPassword       string `json:"redis_password"`
+	RedisDB             int    `json:"redis_db"`
+	PostgresHost        string `json:"postgres_host"`
+	PostgresPort        int    `json:"postgres_port"`
+	PostgresUser        string `json:"postgres_user"`
+	PostgresPassword    string `json:"postgres_password"`
+	PostgresDBName      string `json:"postgres_db_name"`
+	PostgresSSLMode     string `json:"postgres_ssl_mode"`
 }
 
 // NewSettingHandler 创建系统设置处理器
@@ -384,6 +409,31 @@ func loginAgreementDocumentsToService(items []dto.LoginAgreementDocument) []serv
 		})
 	}
 	return result
+}
+
+func deploymentSettingsFromRequest(req deploymentSettingsRequest) *service.DeploymentSettings {
+	return &service.DeploymentSettings{
+		RepoURL:             strings.TrimSpace(req.RepoURL),
+		Branch:              strings.TrimSpace(req.Branch),
+		ServerHost:          strings.TrimSpace(req.ServerHost),
+		ServerPort:          req.ServerPort,
+		ServerUsername:      strings.TrimSpace(req.ServerUsername),
+		ServerPassword:      req.ServerPassword,
+		TargetPath:          strings.TrimSpace(req.TargetPath),
+		DeployCommand:       strings.TrimSpace(req.DeployCommand),
+		BackendServiceName:  strings.TrimSpace(req.BackendServiceName),
+		FrontendServiceName: strings.TrimSpace(req.FrontendServiceName),
+		RedisHost:           strings.TrimSpace(req.RedisHost),
+		RedisPort:           req.RedisPort,
+		RedisPassword:       req.RedisPassword,
+		RedisDB:             req.RedisDB,
+		PostgresHost:        strings.TrimSpace(req.PostgresHost),
+		PostgresPort:        req.PostgresPort,
+		PostgresUser:        strings.TrimSpace(req.PostgresUser),
+		PostgresPassword:    req.PostgresPassword,
+		PostgresDBName:      strings.TrimSpace(req.PostgresDBName),
+		PostgresSSLMode:     strings.TrimSpace(req.PostgresSSLMode),
+	}
 }
 
 // UpdateSettingsRequest 更新设置请求
@@ -3489,6 +3539,68 @@ func (h *SettingHandler) TestWebSearchEmulation(c *gin.Context) {
 	}
 
 	result, err := service.TestWebSearch(c.Request.Context(), req.Query)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+// GetDeploymentSettings returns deployment settings.
+// GET /api/v1/admin/settings/deployment
+func (h *SettingHandler) GetDeploymentSettings(c *gin.Context) {
+	settings, err := h.settingService.GetDeploymentSettings(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	settings.ServerPassword = ""
+	settings.PostgresPassword = ""
+	settings.RedisPassword = ""
+	response.Success(c, settings)
+}
+
+// SaveDeploymentSettings stores deployment settings.
+// PUT /api/v1/admin/settings/deployment
+func (h *SettingHandler) SaveDeploymentSettings(c *gin.Context) {
+	var req deploymentSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	settings, err := h.settingService.SaveDeploymentSettings(c.Request.Context(), deploymentSettingsFromRequest(req))
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, settings)
+}
+
+// TestDeploymentEnvironment tests remote environment connectivity.
+// POST /api/v1/admin/settings/deployment/test
+func (h *SettingHandler) TestDeploymentEnvironment(c *gin.Context) {
+	var req deploymentSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	result, err := h.settingService.TestDeploymentEnvironment(c.Request.Context(), deploymentSettingsFromRequest(req))
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+// RunDeployment runs remote deployment using SSH.
+// POST /api/v1/admin/settings/deployment/run
+func (h *SettingHandler) RunDeployment(c *gin.Context) {
+	var req deploymentSettingsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	result, err := h.settingService.RunDeployment(c.Request.Context(), deploymentSettingsFromRequest(req))
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

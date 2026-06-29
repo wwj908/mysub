@@ -5017,6 +5017,233 @@
             </div>
           </div>
 
+          <div class="card">
+            <div
+              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+            >
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                部署与环境测试
+              </h2>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                填写 GitHub 来源、服务器信息，以及 Redis / PostgreSQL 测试信息。
+              </p>
+            </div>
+            <div class="space-y-6 p-6">
+              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    GitHub 仓库地址
+                  </label>
+                  <input
+                    v-model="deploymentForm.repo_url"
+                    type="text"
+                    class="input font-mono text-sm"
+                    placeholder="https://github.com/wwj908/mysub.git"
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    分支
+                  </label>
+                  <input
+                    v-model="deploymentForm.branch"
+                    type="text"
+                    class="input"
+                    placeholder="main"
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    服务器 IP
+                  </label>
+                  <input
+                    v-model="deploymentForm.server_host"
+                    type="text"
+                    class="input"
+                    placeholder="154.23.175.150"
+                  />
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      SSH 端口
+                    </label>
+                    <input
+                      v-model.number="deploymentForm.server_port"
+                      type="number"
+                      class="input"
+                      min="1"
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      SSH 用户
+                    </label>
+                    <input
+                      v-model="deploymentForm.server_username"
+                      type="text"
+                      class="input"
+                      placeholder="root"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    SSH 密码
+                  </label>
+                  <input
+                    v-model="deploymentForm.server_password"
+                    type="password"
+                    class="input"
+                    :placeholder="deploymentForm.server_password_set ? '已保存，留空则保持不变' : '输入服务器密码'"
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    部署目录
+                  </label>
+                  <input
+                    v-model="deploymentForm.target_path"
+                    type="text"
+                    class="input font-mono text-sm"
+                    placeholder="/opt/sub2api"
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    后端服务名
+                  </label>
+                  <input
+                    v-model="deploymentForm.backend_service_name"
+                    type="text"
+                    class="input"
+                    placeholder="sub2api-backend"
+                  />
+                </div>
+                <div>
+                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    前端服务名
+                  </label>
+                  <input
+                    v-model="deploymentForm.frontend_service_name"
+                    type="text"
+                    class="input"
+                    placeholder="sub2api-frontend"
+                  />
+                </div>
+              </div>
+
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <h3 class="text-sm font-medium text-gray-900 dark:text-white">
+                  测试环境
+                </h3>
+                <div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
+                  <div class="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+                    <h4 class="text-sm font-medium text-gray-900 dark:text-white">Redis</h4>
+                    <input v-model="deploymentForm.redis_host" type="text" class="input" placeholder="127.0.0.1" />
+                    <div class="grid grid-cols-2 gap-4">
+                      <input v-model.number="deploymentForm.redis_port" type="number" class="input" placeholder="6379" />
+                      <input v-model.number="deploymentForm.redis_db" type="number" class="input" placeholder="0" />
+                    </div>
+                    <input v-model="deploymentForm.redis_password" type="password" class="input" placeholder="Redis 密码，留空则不使用" />
+                  </div>
+                  <div class="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+                    <h4 class="text-sm font-medium text-gray-900 dark:text-white">PostgreSQL</h4>
+                    <input v-model="deploymentForm.postgres_host" type="text" class="input" placeholder="127.0.0.1" />
+                    <div class="grid grid-cols-2 gap-4">
+                      <input v-model.number="deploymentForm.postgres_port" type="number" class="input" placeholder="5432" />
+                      <input v-model="deploymentForm.postgres_user" type="text" class="input" placeholder="postgres" />
+                    </div>
+                    <input
+                      v-model="deploymentForm.postgres_password"
+                      type="password"
+                      class="input"
+                      :placeholder="deploymentForm.postgres_password_set ? '已保存，留空则保持不变' : 'PostgreSQL 密码'"
+                    />
+                    <div class="grid grid-cols-2 gap-4">
+                      <input v-model="deploymentForm.postgres_db_name" type="text" class="input" placeholder="sub2api" />
+                      <input v-model="deploymentForm.postgres_ssl_mode" type="text" class="input" placeholder="disable" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  自定义部署命令
+                </label>
+                <textarea
+                  v-model="deploymentForm.deploy_command"
+                  rows="4"
+                  class="input font-mono text-sm"
+                  placeholder="留空则使用默认 git clone / pull + systemctl restart"
+                ></textarea>
+              </div>
+
+              <div class="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  :disabled="deploymentSaving"
+                  @click="saveDeploymentConfig"
+                >
+                  {{ deploymentSaving ? "保存中..." : "保存部署配置" }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  :disabled="deploymentTesting"
+                  @click="testDeploymentConfig"
+                >
+                  {{ deploymentTesting ? "测试中..." : "测试环境" }}
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  :disabled="deploymentRunning"
+                  @click="runDeploymentNow"
+                >
+                  {{ deploymentRunning ? "部署中..." : "执行部署" }}
+                </button>
+              </div>
+
+              <div
+                v-if="deploymentTestResult && deploymentTestResult.items.length > 0"
+                class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-600"
+              >
+                <h3 class="text-sm font-medium text-gray-900 dark:text-white">测试结果</h3>
+                <div
+                  v-for="item in deploymentTestResult.items"
+                  :key="item.name"
+                  class="flex items-start justify-between gap-4 rounded-lg border border-gray-100 px-4 py-3 dark:border-dark-700"
+                >
+                  <div>
+                    <div class="text-sm font-medium text-gray-900 dark:text-white">
+                      {{ item.name }}
+                    </div>
+                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ item.message }}
+                    </div>
+                  </div>
+                  <span
+                    :class="item.ok ? 'text-green-600' : 'text-red-600'"
+                    class="text-sm font-medium"
+                  >
+                    {{ item.ok ? "正常" : "失败" }}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                v-if="deploymentRunOutput"
+                class="rounded-lg border border-gray-200 p-4 dark:border-dark-600"
+              >
+                <h3 class="mb-3 text-sm font-medium text-gray-900 dark:text-white">部署输出</h3>
+                <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded bg-gray-50 p-3 text-xs text-gray-700 dark:bg-dark-800 dark:text-gray-200">{{ deploymentRunOutput }}</pre>
+              </div>
+            </div>
+          </div>
+
           <!-- Custom Menu Items -->
           <div class="card">
             <div
@@ -7114,6 +7341,35 @@ const testEmailAddress = ref("");
 const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
 const registrationEmailSuffixWhitelistDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
+const deploymentSaving = ref(false);
+const deploymentTesting = ref(false);
+const deploymentRunning = ref(false);
+const deploymentRunOutput = ref("");
+const deploymentTestResult = ref<{ items: Array<{ name: string; ok: boolean; message: string }> } | null>(null);
+const deploymentForm = reactive({
+  repo_url: "",
+  branch: "main",
+  server_host: "",
+  server_port: 22,
+  server_username: "",
+  server_password: "",
+  server_password_set: false,
+  target_path: "/opt/sub2api",
+  deploy_command: "",
+  backend_service_name: "sub2api-backend",
+  frontend_service_name: "sub2api-frontend",
+  redis_host: "",
+  redis_port: 6379,
+  redis_password: "",
+  redis_db: 0,
+  postgres_host: "",
+  postgres_port: 5432,
+  postgres_user: "",
+  postgres_password: "",
+  postgres_password_set: false,
+  postgres_db_name: "",
+  postgres_ssl_mode: "disable",
+});
 
 // Admin API Key 状态
 const adminApiKeyLoading = ref(true);
@@ -8375,6 +8631,71 @@ function removeEndpoint(index: number) {
   form.custom_endpoints.splice(index, 1);
 }
 
+async function loadDeploymentSettings() {
+  try {
+    const settings = await adminAPI.settings.getDeploymentSettings();
+    Object.assign(deploymentForm, {
+      ...deploymentForm,
+      ...settings,
+      server_password: "",
+      redis_password: "",
+      postgres_password: "",
+    });
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  }
+}
+
+async function saveDeploymentConfig() {
+  deploymentSaving.value = true;
+  try {
+    const saved = await adminAPI.settings.saveDeploymentSettings({
+      ...deploymentForm,
+    });
+    Object.assign(deploymentForm, {
+      ...deploymentForm,
+      ...saved,
+      server_password: "",
+      redis_password: "",
+      postgres_password: "",
+    });
+    appStore.showSuccess("部署配置已保存");
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    deploymentSaving.value = false;
+  }
+}
+
+async function testDeploymentConfig() {
+  deploymentTesting.value = true;
+  try {
+    deploymentTestResult.value = await adminAPI.settings.testDeploymentEnvironment({
+      ...deploymentForm,
+    });
+    appStore.showSuccess("环境测试已完成");
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    deploymentTesting.value = false;
+  }
+}
+
+async function runDeploymentNow() {
+  deploymentRunning.value = true;
+  try {
+    const result = await adminAPI.settings.runDeployment({
+      ...deploymentForm,
+    });
+    deploymentRunOutput.value = result.output || "";
+    appStore.showSuccess("部署命令已执行");
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+  } finally {
+    deploymentRunning.value = false;
+  }
+}
+
 function addLoginAgreementDocument() {
   form.login_agreement_documents.push({
     id: `custom-${Date.now().toString(36)}`,
@@ -8575,6 +8896,7 @@ async function loadSettings() {
       openaiFastPolicyLoaded.value = true;
     }
 
+    await loadDeploymentSettings();
     // Load web search emulation config separately
     await loadWebSearchConfig();
   } catch (error: unknown) {

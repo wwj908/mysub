@@ -1310,6 +1310,45 @@ export interface WebSearchTestResult {
   query: string;
 }
 
+export interface DeploymentSettings {
+  repo_url: string;
+  branch: string;
+  server_host: string;
+  server_port: number;
+  server_username: string;
+  server_password?: string;
+  server_password_set?: boolean;
+  target_path: string;
+  deploy_command: string;
+  backend_service_name: string;
+  frontend_service_name: string;
+  redis_host: string;
+  redis_port: number;
+  redis_password?: string;
+  redis_db: number;
+  postgres_host: string;
+  postgres_port: number;
+  postgres_user: string;
+  postgres_password?: string;
+  postgres_password_set?: boolean;
+  postgres_db_name: string;
+  postgres_ssl_mode: string;
+}
+
+export interface DeploymentTestItem {
+  name: string;
+  ok: boolean;
+  message: string;
+}
+
+export interface DeploymentTestResult {
+  items: DeploymentTestItem[];
+}
+
+export interface DeploymentRunResult {
+  output: string;
+}
+
 export async function getWebSearchEmulationConfig(): Promise<WebSearchEmulationConfig> {
   const { data } = await apiClient.get<WebSearchEmulationConfig>(
     "/admin/settings/web-search-emulation",
@@ -1346,6 +1385,43 @@ export async function resetWebSearchUsage(payload: {
   );
 }
 
+export async function getDeploymentSettings(): Promise<DeploymentSettings> {
+  const { data } = await apiClient.get<DeploymentSettings>(
+    "/admin/settings/deployment",
+  );
+  return data;
+}
+
+export async function saveDeploymentSettings(
+  settings: DeploymentSettings,
+): Promise<DeploymentSettings> {
+  const { data } = await apiClient.put<DeploymentSettings>(
+    "/admin/settings/deployment",
+    settings,
+  );
+  return data;
+}
+
+export async function testDeploymentEnvironment(
+  settings: DeploymentSettings,
+): Promise<DeploymentTestResult> {
+  const { data } = await apiClient.post<DeploymentTestResult>(
+    "/admin/settings/deployment/test",
+    settings,
+  );
+  return data;
+}
+
+export async function runDeployment(
+  settings: DeploymentSettings,
+): Promise<DeploymentRunResult> {
+  const { data } = await apiClient.post<DeploymentRunResult>(
+    "/admin/settings/deployment/run",
+    settings,
+  );
+  return data;
+}
+
 export const settingsAPI = {
   getSettings,
   updateSettings,
@@ -1373,6 +1449,10 @@ export const settingsAPI = {
   updateWebSearchEmulationConfig,
   testWebSearchEmulation,
   resetWebSearchUsage,
+  getDeploymentSettings,
+  saveDeploymentSettings,
+  testDeploymentEnvironment,
+  runDeployment,
 };
 
 export default settingsAPI;
