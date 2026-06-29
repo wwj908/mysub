@@ -15,16 +15,16 @@ import (
 )
 
 type DeploymentSettings struct {
-	RepoURL            string `json:"repo_url"`
-	Branch             string `json:"branch"`
-	ServerHost         string `json:"server_host"`
-	ServerPort         int    `json:"server_port"`
-	ServerUsername     string `json:"server_username"`
-	ServerPassword     string `json:"server_password,omitempty"`
-	ServerPasswordSet  bool   `json:"server_password_set"`
-	TargetPath         string `json:"target_path"`
-	DeployCommand      string `json:"deploy_command"`
-	BackendServiceName string `json:"backend_service_name"`
+	RepoURL             string `json:"repo_url"`
+	Branch              string `json:"branch"`
+	ServerHost          string `json:"server_host"`
+	ServerPort          int    `json:"server_port"`
+	ServerUsername      string `json:"server_username"`
+	ServerPassword      string `json:"server_password,omitempty"`
+	ServerPasswordSet   bool   `json:"server_password_set"`
+	TargetPath          string `json:"target_path"`
+	DeployCommand       string `json:"deploy_command"`
+	BackendServiceName  string `json:"backend_service_name"`
 	FrontendServiceName string `json:"frontend_service_name"`
 
 	RedisHost     string `json:"redis_host"`
@@ -32,13 +32,13 @@ type DeploymentSettings struct {
 	RedisPassword string `json:"redis_password,omitempty"`
 	RedisDB       int    `json:"redis_db"`
 
-	PostgresHost     string `json:"postgres_host"`
-	PostgresPort     int    `json:"postgres_port"`
-	PostgresUser     string `json:"postgres_user"`
-	PostgresPassword string `json:"postgres_password,omitempty"`
-	PostgresPasswordSet bool `json:"postgres_password_set"`
-	PostgresDBName   string `json:"postgres_db_name"`
-	PostgresSSLMode  string `json:"postgres_ssl_mode"`
+	PostgresHost        string `json:"postgres_host"`
+	PostgresPort        int    `json:"postgres_port"`
+	PostgresUser        string `json:"postgres_user"`
+	PostgresPassword    string `json:"postgres_password,omitempty"`
+	PostgresPasswordSet bool   `json:"postgres_password_set"`
+	PostgresDBName      string `json:"postgres_db_name"`
+	PostgresSSLMode     string `json:"postgres_ssl_mode"`
 }
 
 type DeploymentCheckItem struct {
@@ -54,6 +54,8 @@ type DeploymentTestResult struct {
 type DeploymentRunResult struct {
 	Output string `json:"output"`
 }
+
+const defaultDockerImageDeployCommand = "set -e; cd /opt/sub2api; git fetch origin main; git checkout main; git pull --ff-only origin main; cd deploy; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml pull sub2api; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml up -d --no-deps --force-recreate sub2api; sleep 8; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml ps sub2api; curl -i http://127.0.0.1:8080/health; docker logs --tail 80 sub2api"
 
 func (s *SettingService) GetDeploymentSettings(ctx context.Context) (*DeploymentSettings, error) {
 	raw, err := s.settingRepo.GetValue(ctx, SettingKeyDeploymentSettings)
@@ -86,6 +88,9 @@ func (s *SettingService) GetDeploymentSettings(ctx context.Context) (*Deployment
 	}
 	if strings.TrimSpace(cfg.PostgresSSLMode) == "" {
 		cfg.PostgresSSLMode = "disable"
+	}
+	if strings.TrimSpace(cfg.DeployCommand) == "" || isLegacyDevComposeDeployCommand(cfg.DeployCommand) {
+		cfg.DeployCommand = defaultDockerImageDeployCommand
 	}
 	return cfg, nil
 }
@@ -155,14 +160,16 @@ func (s *SettingService) RunDeployment(ctx context.Context, cfg *DeploymentSetti
 
 func defaultDeploymentSettings() *DeploymentSettings {
 	return &DeploymentSettings{
-		Branch:            "main",
-		ServerPort:        22,
-		RedisPort:         6379,
-		RedisDB:           0,
-		PostgresPort:      5432,
-		PostgresSSLMode:   "disable",
+		Branch:              "main",
+		ServerPort:          22,
+		RedisPort:           6379,
+		RedisDB:             0,
+		PostgresPort:        5432,
+		PostgresSSLMode:     "disable",
 		BackendServiceName:  "sub2api-backend",
 		FrontendServiceName: "sub2api-frontend",
+		TargetPath:          "/opt/sub2api",
+		DeployCommand:       defaultDockerImageDeployCommand,
 	}
 }
 
@@ -339,14 +346,11 @@ func buildDeployCommand(cfg *DeploymentSettings) string {
 	if strings.TrimSpace(cfg.DeployCommand) != "" {
 		return cfg.DeployCommand
 	}
-	repoURL := strings.TrimSpace(cfg.RepoURL)
-	branch := strings.TrimSpace(cfg.Branch)
-	targetPath := strings.TrimSpace(cfg.TargetPath)
-	if branch == "" {
-		branch = "main"
-	}
-	return fmt.Sprintf(
-		"set -e; if [ ! -d %q/.git ]; then git clone -b %q %q %q; else cd %q && git fetch --all && git checkout %q && git pull --ff-only origin %q; fi; if command -v systemctl >/dev/null 2>&1; then systemctl restart %q || true; systemctl restart %q || true; fi",
-		targetPath, branch, repoURL, targetPath, targetPath, branch, branch, cfg.BackendServiceName, cfg.FrontendServiceName,
-	)
+	return defaultDockerImageDeployCommand
+}
+
+func isLegacyDevComposeDeployCommand(command string) bool {
+	normalized := strings.Join(strings.Fields(command), " ")
+	return strings.Contains(normalized, "docker-compose.dev.yml") &&
+		strings.Contains(normalized, "up -d --build")
 }

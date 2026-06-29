@@ -7346,6 +7346,8 @@ const deploymentTesting = ref(false);
 const deploymentRunning = ref(false);
 const deploymentRunOutput = ref("");
 const deploymentTestResult = ref<{ items: Array<{ name: string; ok: boolean; message: string }> } | null>(null);
+const defaultDockerImageDeployCommand =
+  "set -e; cd /opt/sub2api; git fetch origin main; git checkout main; git pull --ff-only origin main; cd deploy; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml pull sub2api; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml up -d --no-deps --force-recreate sub2api; sleep 8; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml ps sub2api; curl -i http://127.0.0.1:8080/health; docker logs --tail 80 sub2api";
 const deploymentForm = reactive({
   repo_url: "",
   branch: "main",
@@ -7355,7 +7357,7 @@ const deploymentForm = reactive({
   server_password: "",
   server_password_set: false,
   target_path: "/opt/sub2api",
-  deploy_command: "",
+  deploy_command: defaultDockerImageDeployCommand,
   backend_service_name: "sub2api-backend",
   frontend_service_name: "sub2api-frontend",
   redis_host: "",
