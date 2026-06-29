@@ -1,0 +1,29 @@
+server:
+    host: 0.0.0.0
+    port: 8080
+    mode: release
+database:
+    host: postgres
+    port: 5432
+    user: sub2api
+    password: 1be17d08022ac259e4933fe78bc61198da3fedbb5a5ed0bb
+    dbname: sub2api
+    sslmode: disable
+redis:
+    host: redis
+    port: 6379
+    password: 0126acb247f1e665c7621d40811a647fc9d18754058df350
+    db: 0
+    enable_tls: false
+jwt:
+    secret: cac9e26ce89b779a2b964f4e4d355a4bbf071173c096c5b3dd5176748d99f718
+    expire_hour: 24
+default:
+    user_concurrency: 5
+    user_balance: 0
+    api_key_prefix: sk-
+    rate_multiplier: 1
+rate_limit:
+    requests_per_minute: 60
+    burst_size: 10
+timezone: Asia/Shanghai

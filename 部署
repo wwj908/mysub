@@ -1,25 +1,47 @@
-以后就按你这个脚本部署即可，服务器现在已经补好了 `.env` 里的 `SERVER_TRUSTED_PROXIES` 配置：
+方案 B：服务器直接拉 Docker 镜像仓库
+
+镜像地址：
+
+```text
+ghcr.io/wwj908/mysub:latest
+```
+
+前提：
+
+1. `wwj908/mysub` 的 GitHub Actions 已经成功运行 `Docker Image` 工作流。
+2. GitHub Packages 里的镜像如果是 private，服务器先登录 GHCR：
 
 ```bash
-cd /opt/sub2api
-git pull origin main
+echo '你的 GitHub PAT' | docker login ghcr.io -u wwj908 --password-stdin
+```
 
+网页“自定义部署命令”填这个：
+
+```bash
+set -e; cd /opt/sub2api; git fetch origin main; git checkout main; git pull --ff-only origin main; cd deploy; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml pull sub2api; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml up -d --no-deps --force-recreate sub2api; sleep 8; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml ps sub2api; curl -i http://127.0.0.1:8080/health; docker logs --tail 80 sub2api
+```
+
+这条命令只拉取并重启 `sub2api` 应用容器，不删除：
+
+```text
+deploy/data/
+deploy/postgres_data/
+deploy/redis_data/
+```
+
+部署后检查：
+
+```bash
 cd /opt/sub2api/deploy
-
-if [ -d postgres_data ]; then
-  docker compose -f docker-compose.local.yml -f docker-compose.override.yml build --no-cache sub2api
-  docker compose -f docker-compose.local.yml -f docker-compose.override.yml up -d --force-recreate sub2api
-else
-  docker compose -f docker-compose.yml -f docker-compose.override.yml build --no-cache sub2api
-  docker compose -f docker-compose.yml -f docker-compose.override.yml up -d --force-recreate sub2api
-fi
+docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml ps sub2api
+curl -i http://127.0.0.1:8080/health
+docker logs --tail 100 sub2api
 ```
 
-部署后可以检查：
+仅重启应用：
 
 ```bash
-docker compose -f docker-compose.local.yml -f docker-compose.override.yml ps sub2api
-curl -i http://127.0.0.1:8080/health
+cd /opt/sub2api/deploy
+docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml up -d --no-deps --force-recreate sub2api
+docker logs --tail 100 sub2api
 ```
-
-这次修复目前是直接应用在服务器工作区里的改动。如果你之后执行 `git reset --hard` 或服务器重新克隆仓库，需要先把这次代码改动提交/推到 `origin main`，否则代码层修复会丢；不过 `.env` 里的 `SERVER_TRUSTED_PROXIES` 不会被 `git pull` 覆盖。
