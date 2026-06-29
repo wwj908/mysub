@@ -112,7 +112,11 @@ func (s *SettingService) SaveDeploymentSettings(ctx context.Context, cfg *Deploy
 }
 
 func (s *SettingService) TestDeploymentEnvironment(ctx context.Context, cfg *DeploymentSettings) (*DeploymentTestResult, error) {
-	normalized := normalizeDeploymentSettings(cfg, nil)
+	current, err := s.GetDeploymentSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	normalized := normalizeDeploymentSettings(cfg, current)
 	items := make([]DeploymentCheckItem, 0, 4)
 
 	items = append(items, testGitRepo(normalized.RepoURL))
@@ -124,7 +128,11 @@ func (s *SettingService) TestDeploymentEnvironment(ctx context.Context, cfg *Dep
 }
 
 func (s *SettingService) RunDeployment(ctx context.Context, cfg *DeploymentSettings) (*DeploymentRunResult, error) {
-	normalized := normalizeDeploymentSettings(cfg, nil)
+	current, err := s.GetDeploymentSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	normalized := normalizeDeploymentSettings(cfg, current)
 	client, err := dialSSH(normalized)
 	if err != nil {
 		return nil, fmt.Errorf("connect ssh: %w", err)

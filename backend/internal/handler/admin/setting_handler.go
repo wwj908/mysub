@@ -3602,7 +3602,15 @@ func (h *SettingHandler) RunDeployment(c *gin.Context) {
 	}
 	result, err := h.settingService.RunDeployment(c.Request.Context(), deploymentSettingsFromRequest(req))
 	if err != nil {
-		response.ErrorFrom(c, err)
+		if strings.Contains(err.Error(), "server host, username and password are required") {
+			response.BadRequest(c, "server host, username and password are required")
+			return
+		}
+		if result != nil && strings.TrimSpace(result.Output) != "" {
+			response.InternalError(c, strings.TrimSpace(result.Output))
+			return
+		}
+		response.InternalError(c, err.Error())
 		return
 	}
 	response.Success(c, result)

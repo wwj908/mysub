@@ -15,6 +15,53 @@ function Test-PortListening {
     return $null -ne $conn
 }
 
+function Get-ListeningProcessId {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    $conn = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($null -eq $conn) {
+        return $null
+    }
+
+    return $conn.OwningProcess
+}
+
+function Stop-ListeningProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Port,
+
+        [string]$Label = "Process"
+    )
+
+    $procId = Get-ListeningProcessId -Port $Port
+    if ($null -eq $procId) {
+        return $false
+    }
+
+    try {
+        $proc = Get-Process -Id $procId -ErrorAction Stop
+        Write-Host "$Label already listening on ${Port}, stopping PID $procId ($($proc.ProcessName))..."
+    } catch {
+        Write-Host "$Label already listening on ${Port}, stopping PID $procId..."
+    }
+
+    Stop-Process -Id $procId -Force -ErrorAction Stop
+
+    $deadline = (Get-Date).AddSeconds(15)
+    while ((Get-Date) -lt $deadline) {
+        if (-not (Test-PortListening -Port $Port)) {
+            return $true
+        }
+        Start-Sleep -Milliseconds 300
+    }
+
+    throw "$Label on port $Port did not stop in time"
+}
+
 function Start-BackgroundProcess {
     param(
         [Parameter(Mandatory = $true)]
@@ -90,21 +137,21 @@ if (Test-PortListening -Port $redisPort) {
 }
 
 if (Test-PortListening -Port $backendPort) {
-    Write-Host "Backend already listening on $backendPort"
-} else {
-    Write-Host "Starting backend on $backendPort..."
-    $backendProc = Start-BackgroundProcess `
-        -FilePath 'go' `
-        -ArgumentList @('run', './cmd/server') `
-        -WorkingDirectory (Join-Path $repoRoot 'backend') `
-        -StdoutPath (Join-Path $logDir 'backend.stdout.log') `
-        -StderrPath (Join-Path $logDir 'backend.stderr.log')
-
-    if (-not (Wait-ForHttp -Url "http://127.0.0.1:$backendPort/health" -TimeoutSeconds 45)) {
-        throw "Backend failed to start. Check $logDir\backend.stderr.log"
-    }
-    Write-Host "Backend started (PID $($backendProc.Id))"
+    Stop-ListeningProcess -Port $backendPort -Label 'Backend' | Out-Null
 }
+
+Write-Host "Starting backend on $backendPort..."
+$backendProc = Start-BackgroundProcess `
+    -FilePath 'go' `
+    -ArgumentList @('run', './cmd/server') `
+    -WorkingDirectory (Join-Path $repoRoot 'backend') `
+    -StdoutPath (Join-Path $logDir 'backend.stdout.log') `
+    -StderrPath (Join-Path $logDir 'backend.stderr.log')
+
+if (-not (Wait-ForHttp -Url "http://127.0.0.1:$backendPort/health" -TimeoutSeconds 45)) {
+    throw "Backend failed to start. Check $logDir\backend.stderr.log"
+}
+Write-Host "Backend started (PID $($backendProc.Id))"
 
 if (Test-PortListening -Port $frontendPort) {
     Write-Host "Frontend already listening on $frontendPort"

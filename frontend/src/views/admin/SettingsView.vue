@@ -8682,6 +8682,21 @@ async function testDeploymentConfig() {
 }
 
 async function runDeploymentNow() {
+  if (!deploymentForm.server_host.trim()) {
+    appStore.showError("请先填写服务器 IP");
+    return;
+  }
+  if (!deploymentForm.server_username.trim()) {
+    appStore.showError("请先填写 SSH 用户");
+    return;
+  }
+  if (
+    !deploymentForm.server_password.trim() &&
+    !deploymentForm.server_password_set
+  ) {
+    appStore.showError("请先填写并保存 SSH 密码");
+    return;
+  }
   deploymentRunning.value = true;
   try {
     const result = await adminAPI.settings.runDeployment({
