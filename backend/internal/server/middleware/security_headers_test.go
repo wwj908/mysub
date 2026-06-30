@@ -340,6 +340,7 @@ func TestEnhanceCSPPolicy(t *testing.T) {
 		assert.Contains(t, enhanced, AirwallexCheckoutDomain)
 		assert.Contains(t, enhanced, AirwallexDemoStaticDomain)
 		assert.Contains(t, enhanced, AirwallexDemoCheckoutDomain)
+		assert.Contains(t, enhanced, LdxpPayDomain)
 		assert.Contains(t, enhanced, "style-src 'self'")
 		assert.Contains(t, enhanced, "frame-src 'self'")
 	})
@@ -358,6 +359,7 @@ func TestEnhanceCSPPolicy(t *testing.T) {
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "style-src", AirwallexDemoStaticDomain))
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "style-src", AirwallexDemoCheckoutDomain))
 		assert.Equal(t, 1, countDirectiveValue(enhanced, "frame-src", AirwallexDemoCheckoutDomain))
+		assert.Equal(t, 1, countDirectiveValue(enhanced, "frame-src", LdxpPayDomain))
 	})
 }
 

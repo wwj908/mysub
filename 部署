@@ -1,20 +1,3 @@
-方案 B：服务器直接拉 Docker 镜像仓库
-
-镜像地址：
-
-ghcr.io/wwj908/mysub:latest
-
-前提：
-
-1. GitHub Actions 的 Docker Image 工作流已经成功运行。
-2. 如果 GitHub Packages 镜像是 private，服务器先登录 GHCR：
-
-echo '你的 GitHub PAT' | docker login ghcr.io -u wwj908 --password-stdin
-
-网页“自定义部署命令”填这个：
-
-set -e; cd /opt/sub2api; git fetch origin main; git checkout main; git pull --ff-only origin main; cd deploy; docker compose -f docker-compose.local.yml -f docker-compose.override.yml -f docker-compose.image.override.yml pull sub2api; docker compose -f docker-compose.local.yml -f docker-compose.override.yml -f docker-compose.image.override.yml up -d --no-deps --force-recreate sub2api; sleep 8; docker compose -f docker-compose.local.yml -f docker-compose.override.yml -f docker-compose.image.override.yml ps sub2api; curl -i http://127.0.0.1:8080/health; docker logs --tail 80 sub2api
-
-注意：
-
-docker-compose.image.override.yml 必须放在 docker-compose.override.yml 后面，这样旧的本地构建 override 不会把镜像改回 mysub/sub2api:local。
+cd /opt/sub2api/deploy
+docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml pull
+docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml up -d --remove-orphans
