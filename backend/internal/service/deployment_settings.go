@@ -22,6 +22,7 @@ type DeploymentSettings struct {
 	ServerUsername      string `json:"server_username"`
 	ServerPassword      string `json:"server_password,omitempty"`
 	ServerPasswordSet   bool   `json:"server_password_set"`
+	ConsoleURL          string `json:"console_url"`
 	TargetPath          string `json:"target_path"`
 	DeployCommand       string `json:"deploy_command"`
 	BackendServiceName  string `json:"backend_service_name"`
@@ -55,7 +56,9 @@ type DeploymentRunResult struct {
 	Output string `json:"output"`
 }
 
-const defaultDockerImageDeployCommand = "set -e; cd /opt/sub2api; git fetch origin main; git checkout main; git pull --ff-only origin main; cd deploy; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml pull sub2api; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml up -d --no-deps --force-recreate sub2api; sleep 8; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml ps sub2api; curl -i http://127.0.0.1:8080/health; docker logs --tail 80 sub2api"
+const defaultDeploymentRepoURL = "https://github.com/wwj908/mysub.git"
+
+const defaultDockerImageDeployCommand = "set -e; cd /opt/sub2api; git fetch origin main; git checkout main; git pull --ff-only origin main; cd deploy; docker compose -f docker-compose.local.yml -f docker-compose.override.yml -f docker-compose.image.override.yml pull sub2api; docker compose -f docker-compose.local.yml -f docker-compose.override.yml -f docker-compose.image.override.yml up -d --no-deps --force-recreate sub2api; sleep 8; docker compose -f docker-compose.local.yml -f docker-compose.override.yml -f docker-compose.image.override.yml ps sub2api; curl -i http://127.0.0.1:8080/health; docker logs --tail 80 sub2api"
 
 func (s *SettingService) GetDeploymentSettings(ctx context.Context) (*DeploymentSettings, error) {
 	raw, err := s.settingRepo.GetValue(ctx, SettingKeyDeploymentSettings)
@@ -86,10 +89,15 @@ func (s *SettingService) GetDeploymentSettings(ctx context.Context) (*Deployment
 	if strings.TrimSpace(cfg.Branch) == "" {
 		cfg.Branch = "main"
 	}
+	if strings.TrimSpace(cfg.RepoURL) == "" {
+		cfg.RepoURL = defaultDeploymentRepoURL
+	}
 	if strings.TrimSpace(cfg.PostgresSSLMode) == "" {
 		cfg.PostgresSSLMode = "disable"
 	}
-	if strings.TrimSpace(cfg.DeployCommand) == "" || isLegacyDevComposeDeployCommand(cfg.DeployCommand) {
+	if strings.TrimSpace(cfg.DeployCommand) == "" ||
+		isLegacyDevComposeDeployCommand(cfg.DeployCommand) ||
+		isStaleDockerImageDeployCommand(cfg.DeployCommand) {
 		cfg.DeployCommand = defaultDockerImageDeployCommand
 	}
 	return cfg, nil
@@ -125,7 +133,7 @@ func (s *SettingService) TestDeploymentEnvironment(ctx context.Context, cfg *Dep
 	items := make([]DeploymentCheckItem, 0, 4)
 
 	items = append(items, testGitRepo(normalized.RepoURL))
-	items = append(items, testTCP("SSH", normalized.ServerHost, normalized.ServerPort))
+	items = append(items, testSSH(normalized))
 	items = append(items, testRedis(ctx, normalized))
 	items = append(items, testPostgres(normalized))
 
@@ -140,7 +148,7 @@ func (s *SettingService) RunDeployment(ctx context.Context, cfg *DeploymentSetti
 	normalized := normalizeDeploymentSettings(cfg, current)
 	client, err := dialSSH(normalized)
 	if err != nil {
-		return nil, fmt.Errorf("connect ssh: %w", err)
+		return nil, fmt.Errorf("connect ssh: %s", describeSSHError(err))
 	}
 	defer client.Close()
 
@@ -160,6 +168,7 @@ func (s *SettingService) RunDeployment(ctx context.Context, cfg *DeploymentSetti
 
 func defaultDeploymentSettings() *DeploymentSettings {
 	return &DeploymentSettings{
+		RepoURL:             defaultDeploymentRepoURL,
 		Branch:              "main",
 		ServerPort:          22,
 		RedisPort:           6379,
@@ -198,6 +207,9 @@ func normalizeDeploymentSettings(cfg *DeploymentSettings, previous *DeploymentSe
 	}
 	if cfg.ServerPassword != "" {
 		out.ServerPassword = cfg.ServerPassword
+	}
+	if strings.TrimSpace(cfg.ConsoleURL) != "" {
+		out.ConsoleURL = strings.TrimSpace(cfg.ConsoleURL)
 	}
 	if strings.TrimSpace(cfg.TargetPath) != "" {
 		out.TargetPath = strings.TrimSpace(cfg.TargetPath)
@@ -285,6 +297,21 @@ func testTCP(name, host string, port int) DeploymentCheckItem {
 	return DeploymentCheckItem{Name: name, OK: true, Message: "connection successful"}
 }
 
+func testSSH(cfg *DeploymentSettings) DeploymentCheckItem {
+	if strings.TrimSpace(cfg.ServerHost) == "" || cfg.ServerPort <= 0 {
+		return DeploymentCheckItem{Name: "SSH", OK: false, Message: "server host or port is missing"}
+	}
+	if strings.TrimSpace(cfg.ServerUsername) == "" || strings.TrimSpace(cfg.ServerPassword) == "" {
+		return DeploymentCheckItem{Name: "SSH", OK: false, Message: "server username or password is missing"}
+	}
+	client, err := dialSSH(cfg)
+	if err != nil {
+		return DeploymentCheckItem{Name: "SSH", OK: false, Message: describeSSHError(err)}
+	}
+	_ = client.Close()
+	return DeploymentCheckItem{Name: "SSH", OK: true, Message: "ssh login successful"}
+}
+
 func testRedis(ctx context.Context, cfg *DeploymentSettings) DeploymentCheckItem {
 	if strings.TrimSpace(cfg.RedisHost) == "" {
 		return DeploymentCheckItem{Name: "Redis", OK: false, Message: "redis host is required"}
@@ -333,13 +360,36 @@ func dialSSH(cfg *DeploymentSettings) (*ssh.Client, error) {
 	if strings.TrimSpace(cfg.ServerHost) == "" || strings.TrimSpace(cfg.ServerUsername) == "" || strings.TrimSpace(cfg.ServerPassword) == "" {
 		return nil, fmt.Errorf("server host, username and password are required")
 	}
-	sshConfig := &ssh.ClientConfig{
+	return ssh.Dial("tcp", net.JoinHostPort(cfg.ServerHost, fmt.Sprintf("%d", cfg.ServerPort)), sshClientConfig(cfg))
+}
+
+func sshClientConfig(cfg *DeploymentSettings) *ssh.ClientConfig {
+	return &ssh.ClientConfig{
 		User:            cfg.ServerUsername,
 		Auth:            []ssh.AuthMethod{ssh.Password(cfg.ServerPassword)},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 		Timeout:         10 * time.Second,
 	}
-	return ssh.Dial("tcp", net.JoinHostPort(cfg.ServerHost, fmt.Sprintf("%d", cfg.ServerPort)), sshConfig)
+}
+
+func describeSSHError(err error) string {
+	if err == nil {
+		return ""
+	}
+	message := err.Error()
+	lower := strings.ToLower(message)
+	switch {
+	case strings.Contains(lower, "handshake failed") && strings.Contains(lower, "eof"):
+		return message + " (the server closed the connection during SSH handshake; verify the host/port points to SSH, sshd is running, and firewall/security rules allow this client)"
+	case strings.Contains(lower, "unable to authenticate"):
+		return message + " (verify the SSH username/password and whether password login is enabled on the server)"
+	case strings.Contains(lower, "connection refused"):
+		return message + " (nothing is accepting SSH connections on that host/port)"
+	case strings.Contains(lower, "i/o timeout") || strings.Contains(lower, "timed out"):
+		return message + " (connection timed out; check the server IP, port, firewall, and security group)"
+	default:
+		return message
+	}
 }
 
 func buildDeployCommand(cfg *DeploymentSettings) string {
@@ -353,4 +403,11 @@ func isLegacyDevComposeDeployCommand(command string) bool {
 	normalized := strings.Join(strings.Fields(command), " ")
 	return strings.Contains(normalized, "docker-compose.dev.yml") &&
 		strings.Contains(normalized, "up -d --build")
+}
+
+func isStaleDockerImageDeployCommand(command string) bool {
+	normalized := strings.Join(strings.Fields(command), " ")
+	return strings.Contains(normalized, "-f docker-compose.image.override.yml -f docker-compose.override.yml") &&
+		strings.Contains(normalized, "pull sub2api") &&
+		strings.Contains(normalized, "up -d --no-deps --force-recreate sub2api")
 }

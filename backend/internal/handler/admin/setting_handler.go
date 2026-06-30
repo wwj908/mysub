@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
@@ -19,8 +21,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
-	_ "github.com/lib/pq"
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	_ "github.com/lib/pq"
+	"golang.org/x/crypto/ssh"
 )
 
 // semverPattern 预编译 semver 格式校验正则
@@ -28,6 +32,13 @@ var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 
 // menuItemIDPattern validates custom menu item IDs: alphanumeric, hyphens, underscores only.
 var menuItemIDPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
+var deploymentSSHUpgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+	Subprotocols: []string{"sub2api-admin"},
+}
 
 // generateMenuItemID generates a short random hex ID for a custom menu item.
 func generateMenuItemID() (string, error) {
@@ -75,6 +86,7 @@ type deploymentSettingsRequest struct {
 	ServerPort          int    `json:"server_port"`
 	ServerUsername      string `json:"server_username"`
 	ServerPassword      string `json:"server_password"`
+	ConsoleURL          string `json:"console_url"`
 	TargetPath          string `json:"target_path"`
 	DeployCommand       string `json:"deploy_command"`
 	BackendServiceName  string `json:"backend_service_name"`
@@ -419,6 +431,7 @@ func deploymentSettingsFromRequest(req deploymentSettingsRequest) *service.Deplo
 		ServerPort:          req.ServerPort,
 		ServerUsername:      strings.TrimSpace(req.ServerUsername),
 		ServerPassword:      req.ServerPassword,
+		ConsoleURL:          strings.TrimSpace(req.ConsoleURL),
 		TargetPath:          strings.TrimSpace(req.TargetPath),
 		DeployCommand:       strings.TrimSpace(req.DeployCommand),
 		BackendServiceName:  strings.TrimSpace(req.BackendServiceName),
@@ -3614,6 +3627,121 @@ func (h *SettingHandler) RunDeployment(c *gin.Context) {
 		return
 	}
 	response.Success(c, result)
+}
+
+// DeploymentSSHWebSocket opens an interactive SSH shell for deployment.
+// GET /api/v1/admin/settings/deployment/ssh
+func (h *SettingHandler) DeploymentSSHWebSocket(c *gin.Context) {
+	conn, err := deploymentSSHUpgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	cfg, err := h.settingService.GetDeploymentSettings(c.Request.Context())
+	if err != nil {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("load deployment settings failed: "+err.Error()+"\r\n"))
+		return
+	}
+	if strings.TrimSpace(cfg.ServerHost) == "" || strings.TrimSpace(cfg.ServerUsername) == "" || strings.TrimSpace(cfg.ServerPassword) == "" {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("server host, username and password are required\r\n"))
+		return
+	}
+
+	sshConfig := &ssh.ClientConfig{
+		User:            cfg.ServerUsername,
+		Auth:            []ssh.AuthMethod{ssh.Password(cfg.ServerPassword)},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+		Timeout:         10 * time.Second,
+	}
+	client, err := ssh.Dial("tcp", fmt.Sprintf("%s:%d", cfg.ServerHost, cfg.ServerPort), sshConfig)
+	if err != nil {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("connect ssh failed: "+err.Error()+"\r\n"))
+		return
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("create ssh session failed: "+err.Error()+"\r\n"))
+		return
+	}
+	defer session.Close()
+
+	stdin, err := session.StdinPipe()
+	if err != nil {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("open ssh stdin failed: "+err.Error()+"\r\n"))
+		return
+	}
+	stdout, err := session.StdoutPipe()
+	if err != nil {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("open ssh stdout failed: "+err.Error()+"\r\n"))
+		return
+	}
+	stderr, err := session.StderrPipe()
+	if err != nil {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("open ssh stderr failed: "+err.Error()+"\r\n"))
+		return
+	}
+	if err := session.RequestPty("xterm", 32, 120, ssh.TerminalModes{
+		ssh.ECHO:          1,
+		ssh.TTY_OP_ISPEED: 14400,
+		ssh.TTY_OP_OSPEED: 14400,
+	}); err != nil {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("request pty failed: "+err.Error()+"\r\n"))
+		return
+	}
+	if err := session.Shell(); err != nil {
+		_ = conn.WriteMessage(websocket.TextMessage, []byte("start shell failed: "+err.Error()+"\r\n"))
+		return
+	}
+
+	done := make(chan struct{})
+	var writeMu sync.Mutex
+	writeMessage := func(payload []byte) error {
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		return conn.WriteMessage(websocket.TextMessage, payload)
+	}
+	writeOutput := func(r interface{ Read([]byte) (int, error) }) {
+		buf := make([]byte, 4096)
+		for {
+			n, readErr := r.Read(buf)
+			if n > 0 {
+				if err := writeMessage(buf[:n]); err != nil {
+					return
+				}
+			}
+			if readErr != nil {
+				return
+			}
+		}
+	}
+	go writeOutput(stdout)
+	go writeOutput(stderr)
+	go func() {
+		_ = session.Wait()
+		close(done)
+	}()
+
+	for {
+		select {
+		case <-done:
+			return
+		default:
+		}
+		messageType, payload, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if messageType != websocket.TextMessage && messageType != websocket.BinaryMessage {
+			continue
+		}
+		if _, err := stdin.Write(payload); err != nil {
+			_ = writeMessage([]byte("write ssh stdin failed: " + err.Error() + "\r\n"))
+			return
+		}
+	}
 }
 
 // ensureDingTalkSyncAttributes 在保存 settings 后，按 admin 配置的 (attr key, attr name)

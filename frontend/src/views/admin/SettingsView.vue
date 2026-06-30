@@ -5017,229 +5017,138 @@
             </div>
           </div>
 
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
+          <div class="card overflow-hidden">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                部署与环境测试
+                Deploy Console
               </h2>
               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                填写 GitHub 来源、服务器信息，以及 Redis / PostgreSQL 测试信息。
+                Manual VNC mode. Copy commands here and paste them into the provider console.
               </p>
             </div>
-            <div class="space-y-6 p-6">
-              <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    GitHub 仓库地址
-                  </label>
-                  <input
-                    v-model="deploymentForm.repo_url"
-                    type="text"
-                    class="input font-mono text-sm"
-                    placeholder="https://github.com/wwj908/mysub.git"
-                  />
-                </div>
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    分支
-                  </label>
-                  <input
-                    v-model="deploymentForm.branch"
-                    type="text"
-                    class="input"
-                    placeholder="main"
-                  />
-                </div>
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    服务器 IP
-                  </label>
-                  <input
-                    v-model="deploymentForm.server_host"
-                    type="text"
-                    class="input"
-                    placeholder="154.23.175.150"
-                  />
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      SSH 端口
-                    </label>
-                    <input
-                      v-model.number="deploymentForm.server_port"
-                      type="number"
-                      class="input"
-                      min="1"
-                    />
-                  </div>
-                  <div>
-                    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      SSH 用户
-                    </label>
-                    <input
-                      v-model="deploymentForm.server_username"
-                      type="text"
-                      class="input"
-                      placeholder="root"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    SSH 密码
-                  </label>
-                  <input
-                    v-model="deploymentForm.server_password"
-                    type="password"
-                    class="input"
-                    :placeholder="deploymentForm.server_password_set ? '已保存，留空则保持不变' : '输入服务器密码'"
-                  />
-                </div>
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    部署目录
-                  </label>
-                  <input
-                    v-model="deploymentForm.target_path"
-                    type="text"
-                    class="input font-mono text-sm"
-                    placeholder="/opt/sub2api"
-                  />
-                </div>
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    后端服务名
-                  </label>
-                  <input
-                    v-model="deploymentForm.backend_service_name"
-                    type="text"
-                    class="input"
-                    placeholder="sub2api-backend"
-                  />
-                </div>
-                <div>
-                  <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    前端服务名
-                  </label>
-                  <input
-                    v-model="deploymentForm.frontend_service_name"
-                    type="text"
-                    class="input"
-                    placeholder="sub2api-frontend"
-                  />
-                </div>
-              </div>
 
-              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
-                <h3 class="text-sm font-medium text-gray-900 dark:text-white">
-                  测试环境
-                </h3>
-                <div class="mt-4 grid grid-cols-1 gap-6 md:grid-cols-2">
-                  <div class="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-dark-600">
-                    <h4 class="text-sm font-medium text-gray-900 dark:text-white">Redis</h4>
-                    <input v-model="deploymentForm.redis_host" type="text" class="input" placeholder="127.0.0.1" />
-                    <div class="grid grid-cols-2 gap-4">
-                      <input v-model.number="deploymentForm.redis_port" type="number" class="input" placeholder="6379" />
-                      <input v-model.number="deploymentForm.redis_db" type="number" class="input" placeholder="0" />
-                    </div>
-                    <input v-model="deploymentForm.redis_password" type="password" class="input" placeholder="Redis 密码，留空则不使用" />
-                  </div>
-                  <div class="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-dark-600">
-                    <h4 class="text-sm font-medium text-gray-900 dark:text-white">PostgreSQL</h4>
-                    <input v-model="deploymentForm.postgres_host" type="text" class="input" placeholder="127.0.0.1" />
-                    <div class="grid grid-cols-2 gap-4">
-                      <input v-model.number="deploymentForm.postgres_port" type="number" class="input" placeholder="5432" />
-                      <input v-model="deploymentForm.postgres_user" type="text" class="input" placeholder="postgres" />
-                    </div>
-                    <input
-                      v-model="deploymentForm.postgres_password"
-                      type="password"
-                      class="input"
-                      :placeholder="deploymentForm.postgres_password_set ? '已保存，留空则保持不变' : 'PostgreSQL 密码'"
-                    />
-                    <div class="grid grid-cols-2 gap-4">
-                      <input v-model="deploymentForm.postgres_db_name" type="text" class="input" placeholder="sub2api" />
-                      <input v-model="deploymentForm.postgres_ssl_mode" type="text" class="input" placeholder="disable" />
-                    </div>
-                  </div>
+            <div class="bg-black font-mono text-sm text-gray-100">
+              <div class="min-h-[420px] overflow-auto p-4 leading-relaxed md:min-h-[520px]">
+                <div>Debian GNU/Linux 12 {{ deploymentConsoleHostLabel }} tty1</div>
+                <div class="mt-5">{{ deploymentConsoleHostLabel }} login: {{ deploymentForm.server_username || "root" }}</div>
+                <div>Password:</div>
+                <div class="mt-4 text-xs uppercase tracking-wide text-zinc-500">
+                  SSH: {{ deploymentSSHStatus }}
                 </div>
-              </div>
-
-              <div>
-                <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  自定义部署命令
-                </label>
-                <textarea
-                  v-model="deploymentForm.deploy_command"
-                  rows="4"
-                  class="input font-mono text-sm"
-                  placeholder="留空则使用默认 git clone / pull + systemctl restart"
-                ></textarea>
-              </div>
-
-              <div class="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  :disabled="deploymentSaving"
-                  @click="saveDeploymentConfig"
-                >
-                  {{ deploymentSaving ? "保存中..." : "保存部署配置" }}
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  :disabled="deploymentTesting"
-                  @click="testDeploymentConfig"
-                >
-                  {{ deploymentTesting ? "测试中..." : "测试环境" }}
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-primary"
-                  :disabled="deploymentRunning"
-                  @click="runDeploymentNow"
-                >
-                  {{ deploymentRunning ? "部署中..." : "执行部署" }}
-                </button>
-              </div>
-
-              <div
-                v-if="deploymentTestResult && deploymentTestResult.items.length > 0"
-                class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-600"
-              >
-                <h3 class="text-sm font-medium text-gray-900 dark:text-white">测试结果</h3>
-                <div
-                  v-for="item in deploymentTestResult.items"
-                  :key="item.name"
-                  class="flex items-start justify-between gap-4 rounded-lg border border-gray-100 px-4 py-3 dark:border-dark-700"
-                >
-                  <div>
-                    <div class="text-sm font-medium text-gray-900 dark:text-white">
-                      {{ item.name }}
-                    </div>
-                    <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {{ item.message }}
-                    </div>
-                  </div>
-                  <span
-                    :class="item.ok ? 'text-green-600' : 'text-red-600'"
-                    class="text-sm font-medium"
+                <pre
+                  class="mt-4 whitespace-pre-wrap break-words text-gray-100"
+                >{{ deploymentRunOutput }}</pre>
+                <div class="mt-4">{{ deploymentForm.server_username || "root" }}@{{ deploymentConsoleHostLabel }}:~#</div>
+                <div class="mt-3 flex gap-2">
+                  <input
+                    v-model="deploymentSSHInput"
+                    type="text"
+                    class="min-w-0 flex-1 rounded border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                    placeholder="type command, e.g. ls -la"
+                    :disabled="deploymentSSHStatus !== 'connected'"
+                    @keydown.enter.prevent="sendDeploymentSSHInput"
+                  />
+                  <button
+                    type="button"
+                    class="rounded border border-zinc-600 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    :disabled="deploymentSSHStatus !== 'connected'"
+                    @click="sendDeploymentSSHInput"
                   >
-                    {{ item.ok ? "正常" : "失败" }}
-                  </span>
+                    Send
+                  </button>
                 </div>
               </div>
 
-              <div
-                v-if="deploymentRunOutput"
-                class="rounded-lg border border-gray-200 p-4 dark:border-dark-600"
-              >
-                <h3 class="mb-3 text-sm font-medium text-gray-900 dark:text-white">部署输出</h3>
-                <pre class="max-h-96 overflow-auto whitespace-pre-wrap break-all rounded bg-gray-50 p-3 text-xs text-gray-700 dark:bg-dark-800 dark:text-gray-200">{{ deploymentRunOutput }}</pre>
+              <div class="border-t border-zinc-700 bg-zinc-900 px-5 py-4 text-zinc-200">
+                <div class="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="block">
+                      <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">IP</span>
+                      <input
+                        v-model="deploymentForm.server_host"
+                        type="text"
+                        class="w-full rounded border border-zinc-700 bg-black px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                        placeholder="154.23.175.150"
+                      />
+                    </label>
+                    <label class="block">
+                      <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">User</span>
+                      <input
+                        v-model="deploymentForm.server_username"
+                        type="text"
+                        class="w-full rounded border border-zinc-700 bg-black px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                        placeholder="root"
+                      />
+                    </label>
+                    <label class="block">
+                      <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Target Path</span>
+                      <input
+                        v-model="deploymentForm.target_path"
+                        type="text"
+                        class="w-full rounded border border-zinc-700 bg-black px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                        placeholder="/opt/sub2api"
+                      />
+                    </label>
+                    <label class="block sm:col-span-2">
+                      <span class="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-400">Console URL</span>
+                      <input
+                        v-model="deploymentForm.console_url"
+                        type="url"
+                        class="w-full rounded border border-zinc-700 bg-black px-3 py-2 text-sm text-white outline-none focus:border-blue-400"
+                        placeholder="https://www.8e.net/clientarea.php?action=productdetails&id=796&modop=custom&a=getVNC&vnc=1"
+                      />
+                    </label>
+                  </div>
+
+                  <div class="text-sm leading-6 text-zinc-300">
+                    <div>HOSTNAME</div>
+                    <div class="break-all text-zinc-100">{{ deploymentConsoleHostLabel }}</div>
+                    <div class="mt-2 text-blue-300">If the console stays black, press any key to wake it.</div>
+                  </div>
+
+                  <div class="flex flex-wrap gap-2 md:justify-end">
+                    <button
+                      type="button"
+                      class="rounded border border-zinc-600 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="deploymentSaving"
+                      @click="saveDeploymentConfig"
+                    >
+                      {{ deploymentSaving ? "Saving..." : "Save" }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded border border-zinc-600 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="!deploymentForm.console_url.trim()"
+                      @click="openDeploymentConsole"
+                    >
+                      Open Server Console
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="deploymentRunning"
+                      @click="runDeploymentNow"
+                    >
+                      {{ deploymentRunning ? "Copying..." : "Copy Deploy Command" }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="deploymentSSHStatus === 'connecting' || deploymentSSHStatus === 'connected'"
+                      @click="connectDeploymentSSH"
+                    >
+                      {{ deploymentSSHStatus === "connecting" ? "Connecting..." : "Connect SSH" }}
+                    </button>
+                    <button
+                      type="button"
+                      class="rounded border border-zinc-600 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      :disabled="deploymentSSHStatus !== 'connected'"
+                      @click="disconnectDeploymentSSH"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -7176,7 +7085,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from "vue";
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api";
 import {
@@ -7342,12 +7251,13 @@ const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
 const registrationEmailSuffixWhitelistDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
 const deploymentSaving = ref(false);
-const deploymentTesting = ref(false);
 const deploymentRunning = ref(false);
 const deploymentRunOutput = ref("");
-const deploymentTestResult = ref<{ items: Array<{ name: string; ok: boolean; message: string }> } | null>(null);
+const deploymentSSHInput = ref("");
+const deploymentSSHStatus = ref<"disconnected" | "connecting" | "connected">("disconnected");
+let deploymentSSHSocket: WebSocket | null = null;
 const defaultDockerImageDeployCommand =
-  "set -e; cd /opt/sub2api; git fetch origin main; git checkout main; git pull --ff-only origin main; cd deploy; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml pull sub2api; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml up -d --no-deps --force-recreate sub2api; sleep 8; docker compose -f docker-compose.local.yml -f docker-compose.image.override.yml -f docker-compose.override.yml ps sub2api; curl -i http://127.0.0.1:8080/health; docker logs --tail 80 sub2api";
+  "set -e; cd /opt/sub2api; git fetch origin main; git checkout main; git pull --ff-only origin main; cd deploy; docker compose -f docker-compose.local.yml -f docker-compose.override.yml -f docker-compose.image.override.yml pull sub2api; docker compose -f docker-compose.local.yml -f docker-compose.override.yml -f docker-compose.image.override.yml up -d --no-deps --force-recreate sub2api; sleep 8; docker compose -f docker-compose.local.yml -f docker-compose.override.yml -f docker-compose.image.override.yml ps sub2api; curl -i http://127.0.0.1:8080/health; docker logs --tail 80 sub2api";
 const deploymentForm = reactive({
   repo_url: "",
   branch: "main",
@@ -7356,6 +7266,7 @@ const deploymentForm = reactive({
   server_username: "",
   server_password: "",
   server_password_set: false,
+  console_url: "",
   target_path: "/opt/sub2api",
   deploy_command: defaultDockerImageDeployCommand,
   backend_service_name: "sub2api-backend",
@@ -7371,6 +7282,15 @@ const deploymentForm = reactive({
   postgres_password_set: false,
   postgres_db_name: "",
   postgres_ssl_mode: "disable",
+});
+const deploymentConsoleHostLabel = computed(() => {
+  const host = deploymentForm.server_host.trim() || "unconfigured-host";
+  return deploymentForm.server_port && deploymentForm.server_port !== 22
+    ? `${host}:${deploymentForm.server_port}`
+    : host;
+});
+const deploymentManualDeployCommand = computed(() => {
+  return deploymentForm.deploy_command.trim() || defaultDockerImageDeployCommand;
 });
 
 // Admin API Key 状态
@@ -8661,7 +8581,7 @@ async function saveDeploymentConfig() {
       redis_password: "",
       postgres_password: "",
     });
-    appStore.showSuccess("部署配置已保存");
+    appStore.showSuccess("Deployment settings saved");
   } catch (error: unknown) {
     appStore.showError(extractApiErrorMessage(error, t("common.error")));
   } finally {
@@ -8669,45 +8589,109 @@ async function saveDeploymentConfig() {
   }
 }
 
-async function testDeploymentConfig() {
-  deploymentTesting.value = true;
-  try {
-    deploymentTestResult.value = await adminAPI.settings.testDeploymentEnvironment({
-      ...deploymentForm,
-    });
-    appStore.showSuccess("环境测试已完成");
-  } catch (error: unknown) {
-    appStore.showError(extractApiErrorMessage(error, t("common.error")));
-  } finally {
-    deploymentTesting.value = false;
+function openDeploymentConsole() {
+  const url = deploymentForm.console_url.trim();
+  if (!url) {
+    appStore.showError("Please enter console URL");
+    return;
   }
+  window.open(url, "_blank", "noopener,noreferrer");
 }
 
-async function runDeploymentNow() {
+async function connectDeploymentSSH() {
   if (!deploymentForm.server_host.trim()) {
-    appStore.showError("请先填写服务器 IP");
+    appStore.showError("Please enter server IP");
     return;
   }
   if (!deploymentForm.server_username.trim()) {
-    appStore.showError("请先填写 SSH 用户");
+    appStore.showError("Please enter SSH user");
     return;
   }
   if (
     !deploymentForm.server_password.trim() &&
     !deploymentForm.server_password_set
   ) {
-    appStore.showError("请先填写并保存 SSH 密码");
+    appStore.showError("Please enter and save SSH password");
+    return;
+  }
+
+  try {
+    await adminAPI.settings.saveDeploymentSettings({
+      ...deploymentForm,
+    });
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+    return;
+  }
+
+  disconnectDeploymentSSH();
+  deploymentSSHStatus.value = "connecting";
+  deploymentRunOutput.value = "Connecting SSH...\n";
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const wsURL = new URL(`${protocol}//${window.location.host}/api/v1/admin/settings/deployment/ssh`);
+  const token = String(localStorage.getItem("auth_token") ?? "").trim();
+  const protocols = token ? ["sub2api-admin", `jwt.${token}`] : ["sub2api-admin"];
+  const ws = new WebSocket(wsURL.toString(), protocols);
+  deploymentSSHSocket = ws;
+
+  ws.onopen = () => {
+    deploymentSSHStatus.value = "connected";
+    deploymentRunOutput.value += "Connected. Interactive shell starting...\n";
+  };
+  ws.onmessage = (event) => {
+    deploymentRunOutput.value += String(event.data);
+  };
+  ws.onerror = () => {
+    deploymentRunOutput.value += "\nWebSocket error.\n";
+  };
+  ws.onclose = () => {
+    deploymentSSHStatus.value = "disconnected";
+    if (deploymentSSHSocket === ws) {
+      deploymentSSHSocket = null;
+    }
+    deploymentRunOutput.value += "\nDisconnected.\n";
+  };
+}
+
+function disconnectDeploymentSSH() {
+  if (deploymentSSHSocket) {
+    deploymentSSHSocket.close();
+    deploymentSSHSocket = null;
+  }
+  deploymentSSHStatus.value = "disconnected";
+}
+
+function sendDeploymentSSHInput() {
+  if (!deploymentSSHSocket || deploymentSSHSocket.readyState !== WebSocket.OPEN) {
+    appStore.showError("SSH is not connected");
+    return;
+  }
+  const command = deploymentSSHInput.value;
+  deploymentSSHSocket.send(`${command}\n`);
+  deploymentSSHInput.value = "";
+}
+
+async function runDeploymentNow() {
+  if (!deploymentForm.server_host.trim()) {
+    appStore.showError("Please enter server IP");
     return;
   }
   deploymentRunning.value = true;
   try {
-    const result = await adminAPI.settings.runDeployment({
+    await adminAPI.settings.saveDeploymentSettings({
       ...deploymentForm,
     });
-    deploymentRunOutput.value = result.output || "";
-    appStore.showSuccess("部署命令已执行");
+    await navigator.clipboard.writeText(deploymentManualDeployCommand.value);
+    deploymentRunOutput.value = [
+      "Deploy command copied.",
+      "Paste it into the VNC console after root login:",
+      "",
+      deploymentManualDeployCommand.value,
+    ].join("\n");
+    appStore.showSuccess("Deploy command copied");
   } catch (error: unknown) {
-    appStore.showError(extractApiErrorMessage(error, t("common.error")));
+    deploymentRunOutput.value = deploymentManualDeployCommand.value;
+    appStore.showError(extractApiErrorMessage(error, "Copy failed; command is shown in console"));
   } finally {
     deploymentRunning.value = false;
   }
@@ -10279,6 +10263,10 @@ onMounted(() => {
   loadRectifierSettings();
   loadBetaPolicySettings();
   loadProviders();
+});
+
+onUnmounted(() => {
+  disconnectDeploymentSSH();
 });
 
 // =========================

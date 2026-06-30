@@ -1,3 +1,4 @@
 services:
   sub2api:
+    build: !reset null
     image: ${SUB2API_IMAGE:-ghcr.io/wwj908/mysub:latest}

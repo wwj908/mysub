@@ -1318,6 +1318,7 @@ export interface DeploymentSettings {
   server_username: string;
   server_password?: string;
   server_password_set?: boolean;
+  console_url?: string;
   target_path: string;
   deploy_command: string;
   backend_service_name: string;

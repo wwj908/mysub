@@ -473,6 +473,7 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		adminSettings.PUT("/deployment", h.Admin.Setting.SaveDeploymentSettings)
 		adminSettings.POST("/deployment/test", h.Admin.Setting.TestDeploymentEnvironment)
 		adminSettings.POST("/deployment/run", h.Admin.Setting.RunDeployment)
+		adminSettings.GET("/deployment/ssh", h.Admin.Setting.DeploymentSSHWebSocket)
 	}
 }
 
